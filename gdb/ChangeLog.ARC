@@ -1,5 +1,16 @@
 2013-09-03  Jeremy Bennett <jeremy.bennett@embecosm.com>
 
+	Work in progress.
+
+	* arc-tdep.c: Include target-descriptions.h
+	(arc_regnum): Created.
+	(arc_gdbarch_init): Check XML registers if available.
+	* arc-tdep.h: extern declaration of arc_regnum ().
+	(struct arc_regnum): Created.
+	(struct gdbarch_tdep): Add regnum field.
+
+2013-09-03  Jeremy Bennett <jeremy.bennett@embecosm.com>
+
 	* features/arc-core.xml: Correct typo for lp_count.
 	* features/arc-core-extension.xml: Created.
 	* features/arc700.xml: Add core extension registers.

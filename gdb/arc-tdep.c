@@ -186,6 +186,7 @@
 #include "language.h"
 #include "demangle.h"
 #include "objfiles.h"
+#include "target-descriptions.h"
 
 /* ARC header files */
 #include "opcode/arc.h"
@@ -1247,6 +1248,19 @@ arc_store_return_value (struct gdbarch *gdbarch, struct type *type,
     error (_("arc_store_return_value: type length too large."));
 
 }	/* arc_store_return_value () */
+
+
+/*! Get the register numbering information for this architecture.
+
+    @param[in] gdbarch  The architecture of interest
+    @return  The register numbering information struct. */
+const struct arc_regnum *
+arc_regnum (struct gdbarch *gdbarch)
+{
+  return gdbarch_tdep (gdbarch)->regnum;
+
+}	/* arc_regnum () */
+
 
 
 /* -------------------------------------------------------------------------- */
@@ -2331,11 +2345,555 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 {
   struct gdbarch_tdep *tdep;
   struct gdbarch *gdbarch;
+  struct tdesc_arch_data *tdesc_data = NULL;
 
   /* Determine which OSABI we have. A different version of this function is
      linked in for each GDB target. Must do this before we allocate the
      gdbarch, since it is copied into the gdbarch! */
   info.osabi = arc_get_osabi ();
+
+  /* Sort out the registers from the target description, if available. */
+  if (tdesc_has_registers (info.target_desc))
+    {
+      const struct tdesc_feature *feature;
+
+      /* We must have either the core or reduced core registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.core")))
+	{
+	  /* Full core register set */
+	  int ok_p;
+
+	  tdesc_data = tdesc_data_alloc ();
+	  ok_p = 1;
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 0, "r0");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 1, "r1");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 2, "r2");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 3, "r3");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 4, "r4");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 5, "r5");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 6, "r6");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 7, "r7");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 8, "r8");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 9, "r9");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 10, "r10");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 11, "r11");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 12, "r12");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 13, "r13");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 14, "r14");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 15, "r15");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 16, "r16");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 17, "r17");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 18, "r18");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 19, "r19");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 20, "r20");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 21, "r21");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 22, "r22");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 23, "r23");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 24, "r24");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 25, "r25");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 26, "gp");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 27, "fp");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 28, "sp");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 29, "ilink");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 30, "r30");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 31, "blink");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 60, "lp_count");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 62, "limm");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 63, "pcl");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+      else if ((feature = tdesc_find_feature (info.target_desc,
+					      "org.gnu.gdb.arc.reduced-core")))
+	{
+	  /* Reduced core register set */
+	  int ok_p;
+
+	  tdesc_data = tdesc_data_alloc ();
+	  ok_p = 1;
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 0, "r0");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 1, "r1");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 2, "r2");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 3, "r3");
+	  /* No r4-r9 when reduced */
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 10, "r10");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 11, "r11");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 12, "r12");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 13, "r13");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 14, "r14");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 15, "r15");
+	  /* No r16-r25 when reduced */
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 26, "gp");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 27, "fp");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 28, "sp");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 29, "ilink");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 30, "r30");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 31, "blink");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 60, "lp_count");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 62, "limm");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 63, "pcl");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+      else
+	return NULL;		/* Neither core nor reduced core. */
+
+      /* Optionally have the extension core registers. Bizarrely this does
+	 seem permissible, even with the reduced configuration */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.core-extension")))
+	{
+	  /* Extension core register set */
+	  int ok_p;
+
+	  tdesc_data = tdesc_data_alloc ();
+	  ok_p = 1;
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 32, "r32");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 33, "r33");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 34, "r34");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 35, "r35");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 36, "r36");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 37, "r37");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 38, "r38");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 39, "r39");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 40, "r40");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 41, "r41");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 42, "r42");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 43, "r43");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 44, "r44");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 45, "r45");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 46, "r46");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 47, "r47");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 48, "r48");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 49, "r49");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 50, "r50");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 51, "r51");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 52, "r52");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 53, "r53");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 54, "r54");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 55, "r55");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 56, "r56");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 57, "r57");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 58, "r58");
+	  ok_p &= tdesc_numbered_register (feature, tdesc_data, 59, "r59");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      /* Must have the baseline auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-baseline")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "identity");
+	  ok_p &= tdesc_unnumbered_register (feature, "pc");
+	  ok_p &= tdesc_unnumbered_register (feature, "status32");
+	  ok_p &= tdesc_unnumbered_register (feature, "bta");
+	  ok_p &= tdesc_unnumbered_register (feature, "ecr");
+	  ok_p &= tdesc_unnumbered_register (feature, "int_vector_base");
+	  ok_p &= tdesc_unnumbered_register (feature, "status32_p0");
+	  ok_p &= tdesc_unnumbered_register (feature, "aux_user_sp");
+	  ok_p &= tdesc_unnumbered_register (feature, "eret");
+	  ok_p &= tdesc_unnumbered_register (feature, "erbta");
+	  ok_p &= tdesc_unnumbered_register (feature, "erstatus");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_ver");
+	  ok_p &= tdesc_unnumbered_register (feature, "bta_link_build");
+	  ok_p &= tdesc_unnumbered_register (feature, "vecbase_ac_build");
+	  ok_p &= tdesc_unnumbered_register (feature, "rf_build");
+	  ok_p &= tdesc_unnumbered_register (feature, "dccm_build");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+      else
+	return NULL;		  /* No baseline aux regs */
+
+      /* Optional instruction set auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-optional")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "lp_start");
+	  ok_p &= tdesc_unnumbered_register (feature, "lp_end");
+	  ok_p &= tdesc_unnumbered_register (feature, "jli_base");
+	  ok_p &= tdesc_unnumbered_register (feature, "ldi_base");
+	  ok_p &= tdesc_unnumbered_register (feature, "ei_base");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      /* Optional external host debug auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-debug")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "debug");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      /* Optional extended exception state auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-exception")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "efa");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      /* Optional timer auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-timer")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "count0");
+	  ok_p &= tdesc_unnumbered_register (feature, "control0");
+	  ok_p &= tdesc_unnumbered_register (feature, "limit0");
+	  ok_p &= tdesc_unnumbered_register (feature, "count1");
+	  ok_p &= tdesc_unnumbered_register (feature, "control1");
+	  ok_p &= tdesc_unnumbered_register (feature, "limit1");
+	  ok_p &= tdesc_unnumbered_register (feature, "aux_rtc_ctrl");
+	  ok_p &= tdesc_unnumbered_register (feature, "aux_rtc_low");
+	  ok_p &= tdesc_unnumbered_register (feature, "aux_rtc_high");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      /* Optional user extension auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-user")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "xpu");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      /* Optional build configuration auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-bcr")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x60");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x61");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x62");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x63");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x64");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x65");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x66");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x67");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x68");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x69");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x6a");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x6b");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x6c");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x6d");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x6e");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x6f");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x70");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x71");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x72");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x73");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x74");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x75");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x76");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x77");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x78");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x79");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x7a");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x7b");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x7c");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x7d");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x7e");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0x7f");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xc0");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xc1");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xc2");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xc3");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xc4");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xc5");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xc6");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xc7");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xc8");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xc9");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xca");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xcb");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xcc");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xcd");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xce");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xcf");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xd0");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xd1");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xd2");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xd3");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xd4");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xd5");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xd6");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xd7");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xd8");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xd9");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xda");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xdb");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xdc");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xdd");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xde");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xdf");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xe0");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xe1");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xe2");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xe3");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xe4");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xe5");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xe6");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xe7");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xe8");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xe9");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xea");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xeb");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xec");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xed");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xee");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xef");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xf0");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xf1");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xf2");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xf3");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xf4");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xf5");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xf6");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xf7");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xf8");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xf9");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xfa");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xfb");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xfc");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xfd");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xfe");
+	  ok_p &= tdesc_unnumbered_register (feature, "bcr_0xff");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      /* Optional instruction cache auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-icache")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "ic_ivic");
+	  ok_p &= tdesc_unnumbered_register (feature, "ic_ctrl");
+	  ok_p &= tdesc_unnumbered_register (feature, "ic_lil");
+	  ok_p &= tdesc_unnumbered_register (feature, "ic_ivil");
+	  ok_p &= tdesc_unnumbered_register (feature, "ic_ram_address");
+	  ok_p &= tdesc_unnumbered_register (feature, "ic_tag");
+	  ok_p &= tdesc_unnumbered_register (feature, "ic_data");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      /* Optional data cache auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-dcache")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "dc_ivdc");
+	  ok_p &= tdesc_unnumbered_register (feature, "dc_ctrl");
+	  ok_p &= tdesc_unnumbered_register (feature, "dc_flsh");
+	  ok_p &= tdesc_unnumbered_register (feature, "aux_cache_limit");
+	  ok_p &= tdesc_unnumbered_register (feature, "dc_ldl");
+	  ok_p &= tdesc_unnumbered_register (feature, "dc_ivdl");
+	  ok_p &= tdesc_unnumbered_register (feature, "dc_fldl");
+	  ok_p &= tdesc_unnumbered_register (feature, "dc_ram_addr");
+	  ok_p &= tdesc_unnumbered_register (feature, "dc_tag");
+	  ok_p &= tdesc_unnumbered_register (feature, "dc_data");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      /* Optional DCCM auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-dccm")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "aux_dccm");
+	  ok_p &= tdesc_unnumbered_register (feature, "dccm_build");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      /* Optional ICCM auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-iccm")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "aux_iccm");
+	  ok_p &= tdesc_unnumbered_register (feature, "iccm_build");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      /* Optional peripheral memory region auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-pmr")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "dmp_peripheral");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      /* Optional memory protection unit auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-mpu")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_build");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_en");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_ecr");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb0");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp0");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb1");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp1");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb2");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp2");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb3");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp3");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb4");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp4");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb5");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp5");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb6");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp6");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb6");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp6");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb8");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp8");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb9");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp9");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb10");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp10");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb11");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp11");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb12");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp12");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb13");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp13");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb14");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp14");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdb15");
+	  ok_p &= tdesc_unnumbered_register (feature, "mpu_rdp15");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      /* Optional SmaRT auxiliary registers */
+      if ((feature = tdesc_find_feature (info.target_desc,
+					 "org.gnu.gdb.arc.aux-smart")))
+	{
+	  int ok_p;
+
+	  ok_p = 1;
+	  ok_p &= tdesc_unnumbered_register (feature, "smart_build");
+	  ok_p &= tdesc_unnumbered_register (feature, "smart_control");
+	  ok_p &= tdesc_unnumbered_register (feature, "smart_data");
+
+	  if (!ok_p)
+	    {
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+    }
 
   /* Allocate the ARC-private target-dependent information structure, and the
      GDB target-independent information structure. */

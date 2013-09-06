@@ -291,6 +291,14 @@
 /* Globally visible datatypes                                                 */
 /* -------------------------------------------------------------------------- */
 
+/*! Register details */
+struct arc_regnum
+{
+  int is_reduced_core_p;
+  int is_exended_core_p;
+  int pc;
+};
+
 /*! Target dependencies.
 
     This structure holds target-dependent information.
@@ -303,17 +311,19 @@
           type and access its fields. */
 struct gdbarch_tdep
 {
-    /* Detect sigtramp.  */
-    int (*is_sigtramp) (struct frame_info*);
+  /* Info about registers. */
+  struct arc_regnum *regnum;
+
+  /* Detect sigtramp.  */
+  int (*is_sigtramp) (struct frame_info*);
   
-    /* Get address of sigcontext for sigtramp.  */
-    CORE_ADDR (*sigcontext_addr) (struct frame_info*);
-
-    /* Offset of registers in `struct sigcontext'. */
-    const int*   sc_reg_offset;
-    unsigned int sc_num_regs;
+  /* Get address of sigcontext for sigtramp.  */
+  CORE_ADDR (*sigcontext_addr) (struct frame_info*);
+  
+  /* Offset of registers in `struct sigcontext'. */
+  const int*   sc_reg_offset;
+  unsigned int sc_num_regs;
 };
-
 
 void _initialize_arc_tdep (void);
 
@@ -341,6 +351,7 @@ extern struct arcDisState arcAnalyzeInstr (bfd_vma address,
 
 /* From arc-tdep.c */
 extern int arc_debug;
+extern const struct arc_regnum *arc_regnum (struct gdbarch *gdbarch);
 
 /* From arc-linux.c or arc-elf32.c */
 extern enum gdb_osabi arc_get_osabi (void);
