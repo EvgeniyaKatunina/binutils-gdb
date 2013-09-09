@@ -1,3 +1,26 @@
+2013-09-09  Jeremy Bennett <jeremy.bennett@embecosm.com>
+
+	Work in progress
+
+	* features/arc-aux-baseline.v1.xml: Created.
+	* features/arc-aux-baseline.v2.xml: Renamed from
+	arc-aux-baseline.xml.
+	* arc-aux-exception.v1.xml: Created.
+	* arc-aux-exception.v2.xml: Renamed from arc-aux-exception.xml.
+	* arc-aux-mpu.v2.xml: Renamed from arc-aux-mpu.xml.
+	* arc-aux-smart.v2.xml: Renamed from arc-aux-smart.xml.
+	* arc-aux-timer.v1.xml: Created.
+	* arc-aux-timer.v2.xml: Renamed from arc-aux-timer.xml.
+	* arc-core-basecase.xml: Renamed from arc-core.xml.
+	* arc-core-linkregs.v1.xml: Created.
+	* arc-core-linkregs.v2.xml: Likewise.
+	* arc-core-other.xml: Likewise.
+	* arc-core-pointers.xml: Likewise.
+	* arc-core-reduced.xml: Likewise.
+	* arc-reduced-core.xml: Remove pointer, link and "other"
+	registers.
+	* arc700.xml: Likewise.
+
 2013-09-03  Jeremy Bennett <jeremy.bennett@embecosm.com>
 
 	Work in progress.
