@@ -12,13 +12,17 @@
 <!DOCTYPE feature SYSTEM "gdb-target.dtd">
 <feature name="org.gnu.gdb.arc.core-reduced">
   <!-- ARC core register set -->
+  <!-- Argument registers -->
   <reg name="r0" bitsize="32" regnum="0" group="general"/>
   <reg name="r1" bitsize="32" regnum="1" group="general"/>
   <reg name="r2" bitsize="32" regnum="2" group="general"/>
   <reg name="r3" bitsize="32" regnum="3" group="general"/>
-  <!--- No r4-r9 when reduced -->
+  <!--- No r4-r7 when reduced -->
+  <!-- Temporary registers -->
+  <!--- No r8-r9 when reduced -->
   <reg name="r10" bitsize="32" regnum="10" group="general"/>
   <reg name="r11" bitsize="32" regnum="11" group="general"/>
+  <!-- Saved registers -->
   <reg name="r12" bitsize="32" regnum="12" group="general"/>
   <reg name="r13" bitsize="32" regnum="13" group="general"/>
   <reg name="r14" bitsize="32" regnum="14" group="general"/>

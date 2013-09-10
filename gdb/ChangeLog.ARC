@@ -1,3 +1,9 @@
+2013-09-10  Jeremy Bennett <jeremy.bennett@embecosm.com>
+
+	* features/arc-core-basecase.xml: Better commenting.
+	* features/arc-core-reduced.xml: Better commenting.
+	* features/arc700.xml: Remove v2 features.
+
 2013-09-09  Jeremy Bennett <jeremy.bennett@embecosm.com>
 
 	Work in progress

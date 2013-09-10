@@ -12,6 +12,7 @@
 <!DOCTYPE feature SYSTEM "gdb-target.dtd">
 <feature name="org.gnu.gdb.arc.core-basecase">
   <!-- ARC baseline core register set -->
+  <!-- Argument registers -->
   <reg name="r0" bitsize="32" regnum="0" group="general"/>
   <reg name="r1" bitsize="32" regnum="1" group="general"/>
   <reg name="r2" bitsize="32" regnum="2" group="general"/>
@@ -20,10 +21,12 @@
   <reg name="r5" bitsize="32" regnum="5" group="general"/>
   <reg name="r6" bitsize="32" regnum="6" group="general"/>
   <reg name="r7" bitsize="32" regnum="7" group="general"/>
+  <!-- Temporary registers -->
   <reg name="r8" bitsize="32" regnum="8" group="general"/>
   <reg name="r9" bitsize="32" regnum="9" group="general"/>
   <reg name="r10" bitsize="32" regnum="10" group="general"/>
   <reg name="r11" bitsize="32" regnum="11" group="general"/>
+  <!-- Saved registers -->
   <reg name="r12" bitsize="32" regnum="12" group="general"/>
   <reg name="r13" bitsize="32" regnum="13" group="general"/>
   <reg name="r14" bitsize="32" regnum="14" group="general"/>

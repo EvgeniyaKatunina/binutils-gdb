@@ -26,7 +26,7 @@
   <xi:include href="arc-aux-baseline.v1.xml"/>
   <xi:include href="arc-aux-iset.xml"/>
   <xi:include href="arc-aux-debug.xml"/>
-  <xi:include href="arc-aux-exception.xml"/>
+  <xi:include href="arc-aux-exception.v1.xml"/>
   <xi:include href="arc-aux-timer.v1.xml"/>
   <xi:include href="arc-aux-user.xml"/>
   <xi:include href="arc-aux-bcr.xml"/>
@@ -35,6 +35,4 @@
   <xi:include href="arc-aux-dccm.xml"/>
   <xi:include href="arc-aux-iccm.xml"/>
   <xi:include href="arc-aux-pmr.xml"/>
-  <xi:include href="arc-aux-mpu.xml"/>
-  <xi:include href="arc-aux-smart.xml"/>
 </target>
