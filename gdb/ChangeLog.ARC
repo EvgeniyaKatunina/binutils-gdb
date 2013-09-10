@@ -1,5 +1,67 @@
 2013-09-10  Jeremy Bennett <jeremy.bennett@embecosm.com>
 
+	Work in progress.
+
+	* arc-elf-tdep.c (arc_elf_cannot_fetch_register)
+	(arc_elf_cannot_store_register): Deleted.
+	(arc_elf_sim_map): Rewritten to use arc_sim_aux_reg_map_lookup.
+	(arc_gdbarch_osabi_init): Remove calls to
+	set_gdbarch_cannot_fetch_register and
+	set_gdbarch_cannot_store_register.
+	* arc-linux-tdep.c (arc_linux_cannot_fetch_register)
+	(arc_linux_cannot_store_register): Deleted.
+	(arc_gdbarch_osabi_init): Remove calls to
+	set_gdbarch_cannot_fetch_register and
+	set_gdbarch_cannot_store_register.
+	* arc-tdep.c: Include sim/arc/arc-sim-registers.h.
+	(struct arc_sim_aux_map_entry): New type.
+	(arc_print_frame_info): Replace ARC_FIRST_CALLEE_SAVED_REGNUM and
+	ARC_LAST_CALLEE_SAVED_REGNUM by ARC_FIRST_SAVED_REGNUM and
+	ARC_LAST_SAVED_REGNUM respectively.
+	(arc_find_this_sp, arc_is_callee_saved, arc_scan_prologue): Likewise.
+	(arc_sim_aux_map_size, arc_sim_aux_map): Created.
+	(arc_tdesc_sim_aux_register): Created.
+	(arc_register_name, arc_register_type): Deleted.
+	(arc_print_registers_info): Replace ARC_TOTAL_REGS by
+	gdbarch_num_regs.
+	(arc_gdbarch_init): Add local declarations for num_regs and
+	register structures. Populate regnum structure. Update code to
+	read target description register info.  Use number of target
+	description regs for set_gdbarch_num_regs. Remove calls to
+	set_gdbarch_register_name and gdbarch_register_type.
+	(arc_regnum): Created.
+	(arc_sim_aux_reg_map_lookup): Created.
+	* arc-tdep.h (ARC_MAX_SIM_AUX_REGS, ARC_ILINK_P0_REGNUM)
+	(ARC_AUX_IDENTITY_REGNUM, ARC_AUX_PC_REGNUM)
+	(ARC_MAX_NUMBERED_REGS, ARC_REDUCED_FIRST_ARG_REGNUM)
+	(ARC_REDUCED_LAST_ARG_REGNUM, ARC_FIRST_TEMP_REGNUM)
+	(ARC_REDUCED_FIRST_TEMP_REGNUM, ARC_LAST_TEMP_REGNUM)
+	(ARC_REDUCED_LAST_TEMP_REGNUM): New #defines.
+	(ARC_AUX_LP_START_REGNUM, ARC_AUX_LP_END_REGNUM)
+	(ARC_AUX_STATUS32_L1_REGNUM, ARC_AUX_STATUS32_L2_REGNUM)
+	(ARC_AUX_AUX_IRQ_LV12_REGNUM, ARC_AUX_AUX_IRQ_LEV_REGNUM)
+	(ARC_AUX_AUX_IRQ_HINT_REGNUM, ARC_AUX_ERET_REGNUM)
+	(ARC_AUX_ERBTA_REGNUM, ARC_AUX_ERSTATUS_REGNUM)
+	(ARC_AUX_ECR_REGNUM, ARC_AUX_EFA_REGNUM, ARC_AUX_ICAUSE1_REGNUM)
+	(ARC_AUX_ICAUSE2_REGNUM, ARC_AUX_AUX_IENABLE_REGNUM)
+	(ARC_AUX_AUX_ITRIGGER_REGNUM, ARC_AUX_BTA_REGNUM)
+	(ARC_AUX_BTA_L1_REGNUM, ARC_AUX_BTA_L2_REGNUM)
+	(ARC_AUX_AUX_IRQ_PULSE_CANCEL_REGNUM)
+	(ARC_AUX_AUX_IRQ_PENDING_REGNUM, ARC_NUM_RAW_REGS)
+	(ARC_TOTAL_REGs): Deleted.
+	(ARC_NUM_PSEUDO_REGS): Redefined.
+	(ARC_FIRST_SAVED_REGNUM): Renamed from
+	ARC_FIRST_CALLEE_SAVED_REGNUM.
+	(ARC_LAST_SAVED_REGNUM): Renamed from
+	ARC_LAST_CALLEE_SAVED_REGNUM.
+	(enum arc_isa_version): Created.
+	(struct arc_regnum): New fields, isa_version, is_extended_core_pm
+	first_arg_regnum, last_arg_regnum, first_temp_regnum and
+	last_temp_regnum.
+	(arc_sim_aux_reg_map_lookup): New extern declaration.
+
+2013-09-10  Jeremy Bennett <jeremy.bennett@embecosm.com>
+
 	* features/arc-core-basecase.xml: Better commenting.
 	* features/arc-core-reduced.xml: Better commenting.
 	* features/arc700.xml: Remove v2 features.

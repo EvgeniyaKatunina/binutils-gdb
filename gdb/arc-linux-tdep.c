@@ -356,124 +356,6 @@ arc_linux_sigcontext_addr (struct frame_info *this_frame)
 /* Functions are listed in the order they are used in arc_linux_init_abi.     */
 /* -------------------------------------------------------------------------- */
 
-/*! Determine whether a register can be read.
-
-    A Linux target can only read registers writable in user space and for now
-    only sees a small subset of aux registers and no core extension registers.
-
-    @todo We'll need a more complex interface once the aux registers are
-          defined via XML.
-
-    @param[in] gdbarch  The current GDB architecture.
-    @param[in] regnum   The register of interest.
-    @return             Non-zero (TRUE) if we _cannot_ read the register,
-                        false otherwise. */
-static int
-arc_linux_cannot_fetch_register (struct gdbarch *gdbarch, int regnum)
-{
-  /* Default is to be able to read regs, pick out the others explicitly. */
-  switch (regnum)
-    {
-    case 32: case 33: case 34: case 35:	/* Extension core registers */
-    case 36: case 37: case 38: case 39:
-    case 40: case 41: case 42: case 43:
-    case 44: case 45: case 46: case 47:
-    case 48: case 49: case 50: case 51:
-    case 52: case 53: case 54: case 55:
-    case 56: case 57: case 58: case 59:
-    case ARC_RESERVED_REGNUM:
-    case ARC_LIMM_REGNUM:
-    case ARC_ILINK1_REGNUM:
-    case ARC_ILINK2_REGNUM:
-    case ARC_AUX_STATUS32_L1_REGNUM:
-    case ARC_AUX_STATUS32_L2_REGNUM:
-    case ARC_AUX_AUX_IRQ_LV12_REGNUM:
-    case ARC_AUX_AUX_IRQ_LEV_REGNUM:
-    case ARC_AUX_AUX_IRQ_HINT_REGNUM:
-    case ARC_AUX_ERET_REGNUM:
-    case ARC_AUX_ERBTA_REGNUM:
-    case ARC_AUX_ERSTATUS_REGNUM:
-    case ARC_AUX_ECR_REGNUM:
-    case ARC_AUX_ICAUSE1_REGNUM:
-    case ARC_AUX_ICAUSE2_REGNUM:
-    case ARC_AUX_AUX_IENABLE_REGNUM:
-    case ARC_AUX_AUX_ITRIGGER_REGNUM:
-    case ARC_AUX_BTA_REGNUM:
-    case ARC_AUX_BTA_L1_REGNUM:
-    case ARC_AUX_BTA_L2_REGNUM:
-    case ARC_AUX_AUX_IRQ_PULSE_CANCEL_REGNUM:
-    case ARC_AUX_AUX_IRQ_PENDING_REGNUM:
-      return 1;				/* Privileged/debugger read only. */
-
-    default:
-      /* Only Aux regs available are LP_START, LP_END, STATUS32 and EFA. The
-	 last being odd, because it is a priviledged register, but the kernel
-	 gives it to us to read anyway. */
-      return 0;				/* Always readable. */
-    }
-}	/* arc_linux_cannot_fetch_register () */
-
-
-/*! Determine whether a register can be written.
-
-    A Linux target can only write registers writable in user space and for now
-    only sees a small subset of aux registers and no core extension registers.
-
-    @todo We'll need a more complex interface once the aux registers are
-          defined via XML.
-
-    @param[in] gdbarch  The current GDB architecture.
-    @param[in] regnum   The register of interest.
-    @return             Non-zero (TRUE) if we _cannot_ write the register,
-                        false otherwise. */
-static int
-arc_linux_cannot_store_register (struct gdbarch *gdbarch, int regnum)
-{
-  /* Default is to be able to write regs, pick out the others explicitly. */
-  switch (regnum)
-    {
-    case ARC_ILINK1_REGNUM:
-    case ARC_ILINK2_REGNUM:
-    case 32: case 33: case 34: case 35:	/* Extension core registers */
-    case 36: case 37: case 38: case 39:
-    case 40: case 41: case 42: case 43:
-    case 44: case 45: case 46: case 47:
-    case 48: case 49: case 50: case 51:
-    case 52: case 53: case 54: case 55:
-    case 56: case 57: case 58: case 59:
-    case ARC_RESERVED_REGNUM:
-    case ARC_LIMM_REGNUM:
-    case ARC_PCL_REGNUM:
-    case ARC_AUX_STATUS32_REGNUM:
-    case ARC_AUX_STATUS32_L1_REGNUM:
-    case ARC_AUX_STATUS32_L2_REGNUM:
-    case ARC_AUX_AUX_IRQ_LV12_REGNUM:
-    case ARC_AUX_AUX_IRQ_LEV_REGNUM:
-    case ARC_AUX_AUX_IRQ_HINT_REGNUM:
-    case ARC_AUX_ERET_REGNUM:
-    case ARC_AUX_ERBTA_REGNUM:
-    case ARC_AUX_ERSTATUS_REGNUM:
-    case ARC_AUX_ECR_REGNUM:
-    case ARC_AUX_EFA_REGNUM:
-    case ARC_AUX_ICAUSE1_REGNUM:
-    case ARC_AUX_ICAUSE2_REGNUM:
-    case ARC_AUX_AUX_IENABLE_REGNUM:
-    case ARC_AUX_AUX_ITRIGGER_REGNUM:
-    case ARC_AUX_BTA_REGNUM:
-    case ARC_AUX_BTA_L1_REGNUM:
-    case ARC_AUX_BTA_L2_REGNUM:
-    case ARC_AUX_AUX_IRQ_PULSE_CANCEL_REGNUM:
-    case ARC_AUX_AUX_IRQ_PENDING_REGNUM:
-      return 1;				/* Privileged/debugger write only. */
-
-    default:
-      /* Only Aux regs available are LP_START, LP_END, STATUS32. Unlike fetch,
-	 we cannot store the privileged EFA register. */
-      return 0;				/* Always writable. */
-    }
-}	/* arc_linux_cannot_store_register () */
-
-
 /*! Get breakpoint which is approriate for address at which it is to be set.
 
     For ARC under Linux, breakpoint uses the 16-bit TRAP_S 1 instruction,
@@ -680,8 +562,6 @@ arc_gdbarch_osabi_init (struct gdbarch *gdbarch)
   tdep->sc_num_regs = ARC_NUM_RAW_REGS;
 
   /* Set up target dependent GDB architecture entries. */
-  set_gdbarch_cannot_fetch_register (gdbarch, arc_linux_cannot_fetch_register);
-  set_gdbarch_cannot_store_register (gdbarch, arc_linux_cannot_store_register);
   set_gdbarch_breakpoint_from_pc (gdbarch, arc_linux_breakpoint_from_pc);
   set_gdbarch_fetch_tls_load_module_address (gdbarch,
                                              svr4_fetch_objfile_link_map);

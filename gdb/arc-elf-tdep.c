@@ -83,61 +83,6 @@ typedef struct
 /* Functions are listed in the order they are used in arc_elf_init_abi.       */
 /* -------------------------------------------------------------------------- */
 
-/*! Determine whether a register can be read.
-
-    An ELF target can see any register visible via the JTAG debug interface.
-
-    @todo We'll need a more complex interface once the aux registers are
-          defined via XML.
-
-    @param[in] gdbarch  The current GDB architecture.
-    @param[in] regnum   The register of interest.
-    @return             Non-zero (TRUE) if we _cannot_ read the register,
-                        false otherwise. */
-static int
-arc_elf_cannot_fetch_register (struct gdbarch *gdbarch, int regnum)
-{
-  /* Default is to be able to read regs, pick out the others explicitly. */
-  switch (regnum)
-    {
-    case ARC_RESERVED_REGNUM:
-    case ARC_LIMM_REGNUM:
-      return 1;				/* Never readable. */
-
-    default:
-      return 0;				/* Readable via JTAG. */
-    }
-}	/* arc_elf_cannot_fetch_register () */
-
-
-/*! Determine whether a register can be written.
-
-    An ELF target can see any register visible via the JTAG debug interface.
-
-    @todo We'll need a more complex interface once the aux registers are
-          defined via XML.
-
-    @param[in] gdbarch  The current GDB architecture.
-    @param[in] regnum   The register of interest.
-    @return             Non-zero (TRUE) if we _cannot_ write the register,
-                        false otherwise. */
-static int
-arc_elf_cannot_store_register (struct gdbarch *gdbarch, int regnum)
-{
-  /* Default is to be able to write regs, pick out the others explicitly. */
-  switch (regnum)
-    {
-    case ARC_RESERVED_REGNUM:
-    case ARC_LIMM_REGNUM:
-    case ARC_PCL_REGNUM:
-      return 1;				/* Never writable. */
-
-    default:
-      return 0;				/* Writable via JTAG. */
-    }
-}	/* arc_elf_cannot_store_register () */
-
-
 /*! Get breakpoint which is approriate for address at which it is to be set.
 
     For ARC ELF, breakpoint uses the 16-bit BRK_S instruction, which is 0x7fff
@@ -190,137 +135,19 @@ arc_elf_sim_map (int                gdb_regnum,
       *sim_regnum = gdb_regnum;
       *reg_class  = ARC_CORE_REGISTER;
     }
+  else if (ARC_PC_REGNUM == gdb_regnum)
+    {
+      /* sim_regnum irrelevant. */
+      *reg_class = ARC_PROGRAM_COUNTER;
+    }
   else
     {
-      switch (gdb_regnum)
-	{
-	case ARC_RESERVED_REGNUM:
-	case ARC_LIMM_REGNUM:
-	case ARC_PCL_REGNUM:
-	  /* Unsupported core registers */
-	  *sim_regnum  = -1;
+      *sim_regnum = arc_sim_aux_reg_map_lookup (gdb_regnum);
+
+      if (*sim_regnum == -1)
 	  *reg_class = ARC_UNKNOWN_REGISTER;
-	  break;
-
-	case ARC_PC_REGNUM:
-	  /* sim_regnum irrelevant. */
-	  *reg_class = ARC_PROGRAM_COUNTER;
-	  break;
-
-	case ARC_AUX_LP_START_REGNUM:
-	  *sim_regnum = ARC_AUX_LP_START_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_LP_END_REGNUM:
-	  *sim_regnum = ARC_AUX_LP_END_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_STATUS32_REGNUM:
-	  *sim_regnum = ARC_AUX_STATUS32_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_STATUS32_L1_REGNUM:
-	  *sim_regnum = ARC_AUX_STATUS32_L1_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_STATUS32_L2_REGNUM:
-	  *sim_regnum = ARC_AUX_STATUS32_L2_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_AUX_IRQ_LV12_REGNUM:
-	  *sim_regnum = ARC_AUX_AUX_IRQ_LV12_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_AUX_IRQ_LEV_REGNUM:
-	  *sim_regnum = ARC_AUX_AUX_IRQ_LEV_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_AUX_IRQ_HINT_REGNUM:
-	  *sim_regnum = ARC_AUX_AUX_IRQ_HINT_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_ERET_REGNUM:
-	  *sim_regnum = ARC_AUX_ERET_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_ERBTA_REGNUM:
-	  *sim_regnum = ARC_AUX_ERBTA_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_ERSTATUS_REGNUM:
-	  *sim_regnum = ARC_AUX_ERSTATUS_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_ECR_REGNUM:
-	  *sim_regnum = ARC_AUX_ECR_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_EFA_REGNUM:
-	  *sim_regnum = ARC_AUX_EFA_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_ICAUSE1_REGNUM:
-	  *sim_regnum = ARC_AUX_ICAUSE1_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_ICAUSE2_REGNUM:
-	  *sim_regnum = ARC_AUX_ICAUSE2_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_AUX_IENABLE_REGNUM:
-	  *sim_regnum = ARC_AUX_AUX_IENABLE_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_AUX_ITRIGGER_REGNUM:
-	  *sim_regnum = ARC_AUX_AUX_ITRIGGER_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_BTA_REGNUM:
-	  *sim_regnum = ARC_AUX_BTA_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_BTA_L1_REGNUM:
-	  *sim_regnum = ARC_AUX_BTA_L1_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_BTA_L2_REGNUM:
-	  *sim_regnum = ARC_AUX_BTA_L2_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_AUX_IRQ_PULSE_CANCEL_REGNUM:
-	  *sim_regnum = ARC_AUX_AUX_IRQ_PULSE_CANCEL_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	case ARC_AUX_AUX_IRQ_PENDING_REGNUM:
-	  *sim_regnum = ARC_AUX_AUX_IRQ_PENDING_SIM_REGNUM;
-	  *reg_class  = ARC_AUX_REGISTER;
-	  break;
-
-	default:
-	  *sim_regnum  = -1;
-	  *reg_class = ARC_UNKNOWN_REGISTER;
-	}
+      else
+	*reg_class  = ARC_AUX_REGISTER;
     }
 }	/* arc_elf_sim_map () */
 #endif
@@ -360,8 +187,6 @@ arc_gdbarch_osabi_init (struct gdbarch *gdbarch)
   tdep->sc_num_regs = 0;
 
   /* Set up target dependent GDB architecture entries. */
-  set_gdbarch_cannot_fetch_register (gdbarch, arc_elf_cannot_fetch_register);
-  set_gdbarch_cannot_store_register (gdbarch, arc_elf_cannot_store_register);
   set_gdbarch_breakpoint_from_pc (gdbarch, arc_elf_breakpoint_from_pc);
 
 #ifdef WITH_SIM

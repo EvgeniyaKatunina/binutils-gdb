@@ -151,6 +151,8 @@
 #define ARC_AUX_AUX_IRQ_PULSE_CANCEL_SIM_REGNUM  0x415
 #define ARC_AUX_AUX_IRQ_PENDING_SIM_REGNUM       0x416
 
+/*! Maximum number of simulator aux regs */
+#define ARC_MAX_SIM_AUX_REGS  25
 
 /* -------------------------------------------------------------------------- */
 /* GDB register numbering                                                     */
@@ -160,8 +162,9 @@
 #define ARC_GP_REGNUM               26	/*!< Access __rw__ */
 #define ARC_FP_REGNUM               27	/*!< Access __rw__ */
 #define ARC_SP_REGNUM               28	/*!< Access __rw__ */
-#define ARC_ILINK1_REGNUM           29	/*!< Access __RW__ */
-#define ARC_ILINK2_REGNUM           30	/*!< Access __RW__ */
+#define ARC_ILINK_P0_REGNUM         29	/*!< Access __rw__ */
+#define ARC_ILINK1_REGNUM           29	/*!< Access __rw__ */
+#define ARC_ILINK2_REGNUM           30	/*!< Access __rw__ */
 #define ARC_BLINK_REGNUM            31	/*!< Access __rw__ */
 
 /* Extension core registers r32-r59 */
@@ -169,11 +172,13 @@
 #define ARC_LAST_EXT_CORE_REGNUM    59	/*!< Access __rw__ */
 
 #define ARC_LP_COUNT_REGNUM         60	/*!< Access __rw__ */
-#define ARC_RESERVED_REGNUM         61	/*!< No access */
-#define ARC_LIMM_REGNUM             62	/*!< No access */
-#define ARC_PCL_REGNUM              63	/*!< Access __r__ */
+#define ARC_LIMM_REGNUM             62	/*!< Access __rw__ */
+#define ARC_PCL_REGNUM              63	/*!< Access __rw__ */
 
-/*! Stop and resume PC register.
+/* Baseline auxiliary registers with fixed numbers. */
+#define ARC_AUX_IDENTITY_REGNUM         64 /*!< Access __rw__ */
+
+/*! The program counter.
 
     There is no one register which corresponds to the PC of the address where
     we stopped. Depending on the type of exception, we may have the address of
@@ -197,36 +202,16 @@
 
     @todo This is still subject to some discussion. This is not yet regarded as
           stable. */
-#define ARC_PC_REGNUM               64 /*!< Access __rw__ */
-
-/* Auxilliary registers - subset for GDB. */
-#define ARC_AUX_LP_START_REGNUM              65	/*!< Access __rw_ */
-#define ARC_AUX_LP_END_REGNUM                66	/*!< Access __rw_ */
-#define ARC_AUX_STATUS32_REGNUM              67	/*!< Access __rG__ */
-#define ARC_AUX_STATUS32_L1_REGNUM           68	/*!< Access __RW__ */
-#define ARC_AUX_STATUS32_L2_REGNUM           69	/*!< Access __RW__ */
-#define ARC_AUX_AUX_IRQ_LV12_REGNUM          70	/*!< Access __RW_ */
-#define ARC_AUX_AUX_IRQ_LEV_REGNUM           71	/*!< Access __RW_ */
-#define ARC_AUX_AUX_IRQ_HINT_REGNUM          72	/*!< Access __RW_ */
-#define ARC_AUX_ERET_REGNUM                  73	/*!< Access __RW__ */
-#define ARC_AUX_ERBTA_REGNUM                 74	/*!< Access __RW__ */
-#define ARC_AUX_ERSTATUS_REGNUM              75	/*!< Access __RW__ */
-#define ARC_AUX_ECR_REGNUM                   76	/*!< Access __RW__ */
-#define ARC_AUX_EFA_REGNUM                   77	/*!< Access __RW_ */
-#define ARC_AUX_ICAUSE1_REGNUM               78	/*!< Access __RW__ */
-#define ARC_AUX_ICAUSE2_REGNUM               79	/*!< Access __RW__ */
-#define ARC_AUX_AUX_IENABLE_REGNUM           80	/*!< Access __RW_ */
-#define ARC_AUX_AUX_ITRIGGER_REGNUM          81	/*!< Access __RW_ */
-#define ARC_AUX_BTA_REGNUM                   82	/*!< Access __RW__ */
-#define ARC_AUX_BTA_L1_REGNUM                83	/*!< Access __RW_ */
-#define ARC_AUX_BTA_L2_REGNUM                84	/*!< Access __RW_ */
-#define ARC_AUX_AUX_IRQ_PULSE_CANCEL_REGNUM  85 /*!< Access __RW_ */
-#define ARC_AUX_AUX_IRQ_PENDING_REGNUM       86	/*!< Access __RW_ */
+#define ARC_AUX_PC_REGNUM           65 /*!< Access __rw__ */
+#define ARC_PC_REGNUM               ARC_AUX_PC_REGNUM	/*!< Short name */
+#define ARC_AUX_STATUS32_REGNUM     66 /*!< Access __rG__ */
 
 /* Some useful counts. */
 
 /*! Maximum number of core registers (i.e. with extension core regs). */
-#define ARC_MAX_CORE_REGS  (ARC_PCL_REGNUM + 1)  /*!< Total core regs */
+#define ARC_MAX_CORE_REGS  (ARC_PCL_REGNUM + 1)
+/*! Maximum number of regs with hard-coded register numbers. */
+#define ARC_MAX_NUMBERED_REGS  (ARC_AUX_STATUS32_REGNUM + 1)
 /*! Number of extension core registers. */
 #define ARC_EXT_CORE_REGS			\
   (ARC_LAST_EXT_CORE_REGNUM - ARC_FIRST_EXT_CORE_REGNUM + 1)
@@ -235,21 +220,28 @@
   (ARC_MAX_CORE_REGS - ARC_NUM_EXT_CORE_REGS)
 
 /*! Number of "raw" registers (i.e. core + aux). */
-#define ARC_NUM_RAW_REGS    (ARC_AUX_AUX_IRQ_PENDING_REGNUM + 1)
+/* #define ARC_NUM_RAW_REGS    (ARC_AUX_AUX_IRQ_PENDING_REGNUM + 1) */
 /*! Total "raw" + pseudo registers. */
-#define ARC_TOTAL_REGS      (ARC_AUX_AUX_IRQ_PENDING_REGNUM + 1)
-/*! Number of pseudo registers. */
-#define ARC_NUM_PSEUDO_REGS (ARC_TOTAL_REGS - ARC_NUM_RAW_REGS)
+/* #define ARC_TOTAL_REGS      (ARC_AUX_AUX_IRQ_PENDING_REGNUM + 1) */
+/*! Number of pseudo registers. We have none. */
+#define ARC_NUM_PSEUDO_REGS  0
 
 /* -------------------------------------------------------------------------- */
 /* ABI constants and macros                                                   */
 /* -------------------------------------------------------------------------- */
 
-#define ARC_FIRST_CALLEE_SAVED_REGNUM  13
-#define ARC_LAST_CALLEE_SAVED_REGNUM   26
-
 #define ARC_FIRST_ARG_REGNUM            0
+#define ARC_REDUCED_FIRST_ARG_REGNUM    0
 #define ARC_LAST_ARG_REGNUM             7
+#define ARC_REDUCED_LAST_ARG_REGNUM     3
+
+#define ARC_FIRST_TEMP_REGNUM           8
+#define ARC_REDUCED_FIRST_TEMP_REGNUM  10
+#define ARC_LAST_TEMP_REGNUM           11
+#define ARC_REDUCED_LAST_TEMP_REGNUM   11
+
+#define ARC_FIRST_SAVED_REGNUM         12
+#define ARC_LAST_SAVED_REGNUM          26
 
 #define ARC_RET_REGNUM                  0
 #define ARC_RET_LOW_REGNUM              0
@@ -291,12 +283,23 @@
 /* Globally visible datatypes                                                 */
 /* -------------------------------------------------------------------------- */
 
+/*! Distinguish which ISA we are using. */
+enum arc_isa_version {
+  ARC_ISA_V1,
+  ARC_ISA_V2,
+  ARC_ISA_UNKNOWN
+};
+
 /*! Register details */
 struct arc_regnum
 {
+  enum arc_isa_version  isa_version;
   int is_reduced_core_p;
-  int is_exended_core_p;
-  int pc;
+  int is_extended_core_p;
+  int first_arg_regnum;
+  int last_arg_regnum;
+  int first_temp_regnum;
+  int last_temp_regnum;
 };
 
 /*! Target dependencies.
@@ -350,9 +353,9 @@ extern struct arcDisState arcAnalyzeInstr (bfd_vma address,
 					   struct disassemble_info *info);
 
 /* From arc-tdep.c */
-extern int arc_debug;
+extern int  arc_debug;
 extern const struct arc_regnum *arc_regnum (struct gdbarch *gdbarch);
-
+extern int  arc_sim_aux_reg_map_lookup (int  gdb_regnum);
 /* From arc-linux.c or arc-elf32.c */
 extern enum gdb_osabi arc_get_osabi (void);
 extern void arc_gdbarch_osabi_init (struct gdbarch *gdbarch);
