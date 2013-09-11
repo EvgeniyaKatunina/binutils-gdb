@@ -2,6 +2,23 @@
 
 	Work in progress.
 
+	* arc-tdep.c (arc_sim_aux_map_size): Initialize in
+	arc_gdbarch_init each time.
+	(arc_register_name, arc_register_type): Temporarily reinstated.
+	(arc_gdbarch_init): record first and last saved reg names in
+	arc_regnum. Record current feature name in variables. Initialize
+	arc_sim_aux_map_size each time. Correct sets of temp and saved
+	registers. Provide warnings for all tdesc failures.
+	* arc-tdep.h (ARC_REDUCED_FIRST_SAVED_REGNUM)
+	(ARC_REDUCED_LAST_SAVED_REGNUM, ARC_FIRST_EXTENSION_REGNUM)
+	(ARC_LAST_EXTENSION_REGNUM): New #define values.
+	(struct arc_regnum): Add first_saved_regnum and last_saved_regnum
+	fields.
+
+2013-09-11  Jeremy Bennett <jeremy.bennett@embecosm.com>
+
+	Work in progress.
+
 	* features/arc-aux-baseline.v1.xml: replace dccm_build by isa_config.
 	* features/arc-core-other.xml: Correct feature name.
 

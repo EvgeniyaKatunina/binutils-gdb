@@ -241,8 +241,12 @@
 #define ARC_REDUCED_LAST_TEMP_REGNUM   11
 
 #define ARC_FIRST_SAVED_REGNUM         12
-#define ARC_LAST_SAVED_REGNUM          26
+#define ARC_REDUCED_FIRST_SAVED_REGNUM 12
+#define ARC_LAST_SAVED_REGNUM          25
+#define ARC_REDUCED_LAST_SAVED_REGNUM  15
 
+#define ARC_FIRST_EXTENSION_REGNUM     32
+#define ARC_LAST_EXTENSION_REGNUM      59
 #define ARC_RET_REGNUM                  0
 #define ARC_RET_LOW_REGNUM              0
 #define ARC_RET_HIGH_REGNUM             1
@@ -300,6 +304,8 @@ struct arc_regnum
   int last_arg_regnum;
   int first_temp_regnum;
   int last_temp_regnum;
+  int first_saved_regnum;
+  int last_saved_regnum;
 };
 
 /*! Target dependencies.
