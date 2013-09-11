@@ -1,3 +1,10 @@
+2013-09-11  Jeremy Bennett <jeremy.bennett@embecosm.com>
+
+	Work in progress.
+
+	* features/arc-aux-baseline.v1.xml: replace dccm_build by isa_config.
+	* features/arc-core-other.xml: Correct feature name.
+
 2013-09-10  Jeremy Bennett <jeremy.bennett@embecosm.com>
 
 	Work in progress.

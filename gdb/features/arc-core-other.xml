@@ -10,7 +10,7 @@
      notice and this notice are preserved.  -->
 
 <!DOCTYPE feature SYSTEM "gdb-target.dtd">
-<feature name="org.gnu.gdb.arc.core">
+<feature name="org.gnu.gdb.arc.core-other">
   <!-- ARC core "other" registers -->
   <reg name="lp_count" bitsize="32" regnum="60" group="general"/>
   <reg name="limm" bitsize="32" regnum="62" group="general"/>
