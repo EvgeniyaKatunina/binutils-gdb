@@ -294,6 +294,13 @@ enum arc_isa_version {
   ARC_ISA_UNKNOWN
 };
 
+/*! Simulator aux register mapping */
+struct arc_sim_aux_map_entry
+{
+  int  gdb_regnum;
+  int  sim_regnum;
+};
+
 /*! Register details */
 struct arc_regnum
 {
@@ -306,6 +313,8 @@ struct arc_regnum
   int last_temp_regnum;
   int first_saved_regnum;
   int last_saved_regnum;
+  struct arc_sim_aux_map_entry *sim_aux_map;
+  int sim_aux_map_size;
 };
 
 /*! Target dependencies.
@@ -334,15 +343,6 @@ struct gdbarch_tdep
   unsigned int sc_num_regs;
 };
 
-void _initialize_arc_tdep (void);
-
-
-/* utility functions used by other ARC-specific modules */
-
-void arc_initialize_disassembler(struct gdbarch *gdbarch,
-				 struct disassemble_info* info);
-
-
 /* -------------------------------------------------------------------------- */
 /*			    Globally visible data                             */
 /* -------------------------------------------------------------------------- */
@@ -362,6 +362,10 @@ extern struct arcDisState arcAnalyzeInstr (bfd_vma address,
 extern int  arc_debug;
 extern const struct arc_regnum *arc_regnum (struct gdbarch *gdbarch);
 extern int  arc_sim_aux_reg_map_lookup (int  gdb_regnum);
+extern void _initialize_arc_tdep (void);
+extern void arc_initialize_disassembler(struct gdbarch *gdbarch,
+					struct disassemble_info* info);
+
 /* From arc-linux.c or arc-elf32.c */
 extern enum gdb_osabi arc_get_osabi (void);
 extern void arc_gdbarch_osabi_init (struct gdbarch *gdbarch);

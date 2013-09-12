@@ -205,13 +205,6 @@
 /*                               local types                                  */
 /* -------------------------------------------------------------------------- */
 
-/*! Simulator aux register mapping */
-struct arc_sim_aux_map_entry
-{
-  int  gdb_aux_regnum;
-  int  sim_aux_regnum;
-};
-
 /*! The frame unwind cache for the ARC. */
 struct arc_unwind_cache
 {
@@ -1262,12 +1255,6 @@ arc_store_return_value (struct gdbarch *gdbarch, struct type *type,
 }	/* arc_store_return_value () */
 
 
-/*! Number of entries in the simulator to GDB map. */
-static int  arc_sim_aux_map_size;
-
-/*! The simulator map. */
-struct arc_sim_aux_map_entry arc_sim_aux_map[ARC_MAX_SIM_AUX_REGS];
-
 /*! Add an aux register to target description and record sim aux reg mapping.
 
     This is a wrapper for tdesc_numbered_register, which also creates an entry
@@ -1291,7 +1278,7 @@ arc_tdesc_sim_aux_register (struct arc_regnum *regnum,
 			    const struct tdesc_feature *feature,
 			    struct tdesc_arch_data *data,
 			    int gdb_regnum,
-			    int sim_aux_regnum,
+			    int sim_regnum,
 			    const char *name)
 {
   int  res;
@@ -1302,9 +1289,10 @@ arc_tdesc_sim_aux_register (struct arc_regnum *regnum,
   /* Maybe save it in the mapping table. */
   if (regnum->isa_version == ARC_ISA_V1)
     {
-      gdb_assert (arc_sim_aux_map_size < ARC_MAX_SIM_AUX_REGS);
-      arc_sim_aux_map[arc_sim_aux_map_size].gdb_aux_regnum = gdb_regnum;
-      arc_sim_aux_map[arc_sim_aux_map_size++].sim_aux_regnum = sim_aux_regnum;
+      gdb_assert (regnum->sim_aux_map_size < ARC_MAX_SIM_AUX_REGS);
+      regnum->sim_aux_map[regnum->sim_aux_map_size].gdb_regnum = gdb_regnum;
+      regnum->sim_aux_map[regnum->sim_aux_map_size].sim_regnum = sim_regnum;
+      regnum->sim_aux_map_size++;
     }
 
   return  res;
@@ -2392,7 +2380,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   struct gdbarch *gdbarch;
   struct tdesc_arch_data *tdesc_data = NULL;
   int  num_regs;
-  struct arc_regnum arc_regnum, *regnum;
+  struct arc_regnum arc_regnum;		/* Temporary */
+  struct arc_sim_aux_map_entry arc_sim_aux_map[ARC_MAX_SIM_AUX_REGS];
 
   /* Determine which OSABI we have. A different version of this function is
      linked in for each GDB target. Must do this before we allocate the
@@ -2409,10 +2398,7 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       /* Start counting registers */
       num_regs = 0;
 
-      /* Start a new simulator register map */
-      arc_sim_aux_map_size = 0;
-
-      /* Default register numbers */
+      /* Default register info */
       arc_regnum.isa_version = ARC_ISA_UNKNOWN;
       arc_regnum.is_reduced_core_p = FALSE;
       arc_regnum.is_extended_core_p = FALSE;
@@ -2422,6 +2408,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       arc_regnum.last_temp_regnum = ARC_LAST_TEMP_REGNUM;
       arc_regnum.first_saved_regnum = ARC_FIRST_SAVED_REGNUM;
       arc_regnum.last_saved_regnum = ARC_LAST_SAVED_REGNUM;
+      arc_regnum.sim_aux_map = arc_sim_aux_map;
+      arc_regnum.sim_aux_map_size = 0;
 
       /* We must have either the core or reduced core basecase registers */
       featname1 = "org.gnu.gdb.arc.core-basecase";
@@ -2515,6 +2503,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	  arc_regnum.last_temp_regnum = ARC_REDUCED_LAST_TEMP_REGNUM;
 	  arc_regnum.first_saved_regnum = ARC_REDUCED_FIRST_SAVED_REGNUM;
 	  arc_regnum.last_saved_regnum = ARC_REDUCED_LAST_SAVED_REGNUM;
+	  arc_regnum.sim_aux_map = arc_sim_aux_map;
+	  arc_regnum.sim_aux_map_size = 0;
 
 	  /* Argument registers */
 	  num_regs = arc_regnum.first_arg_regnum;
@@ -3692,10 +3682,21 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
   if (tdesc_data)
     {
+      struct arc_regnum *regnum;
+      struct arc_sim_aux_map_entry *sim_aux_map;
+      int  i;
+
       info.tdep_info = (void *) tdesc_data;
       tdesc_use_registers (gdbarch, info.target_desc, tdesc_data);
       regnum = GDBARCH_OBSTACK_ZALLOC (gdbarch, struct arc_regnum);
       *regnum = arc_regnum;
+      sim_aux_map = GDBARCH_OBSTACK_CALLOC (gdbarch, regnum->sim_aux_map_size,
+					    struct arc_sim_aux_map_entry);
+      for (i = 0 ; i < regnum->sim_aux_map_size; i++)
+	{
+	  sim_aux_map[i] = arc_sim_aux_map[i];
+	}
+      regnum->sim_aux_map = sim_aux_map;
       tdep->regnum = regnum;
     }
   else
@@ -3713,12 +3714,59 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
 /*! Dump out the target specific information.
 
-  @todo. Why is this empty!
     @param[in] gdbarch  Current GDB architecture
  */
 static void
 arc_dump_tdep (struct gdbarch *gdbarch, struct ui_file *file)
 {
+  struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
+  struct arc_regnum *regnum = tdep->regnum;
+  struct arc_sim_aux_map_entry *sim_aux_map = regnum->sim_aux_map;
+  const char *isa = (regnum->isa_version == ARC_ISA_V1) ? "V1"
+    : (regnum->isa_version == ARC_ISA_V2) ? "V2"
+    : (regnum->isa_version == ARC_ISA_UNKNOWN) ? "unknown" : "error";
+  int  i;
+
+  fprintf_unfiltered (file, "arc_dump_tdep: ISA = %s\n", isa);
+
+  fprintf_unfiltered (file, "arc_dump_tdep: Register information:\n");
+  if (regnum->is_reduced_core_p)
+    fprintf_unfiltered (file, "arc_dump_tdep:   reduced core register set\n");
+  if (regnum->is_extended_core_p)
+    fprintf_unfiltered (file, "arc_dump_tdep:   extended core register set\n");
+  fprintf_unfiltered (file, "arc_dump_tdep:   first argument reg = %d\n",
+		      regnum->first_arg_regnum);
+  fprintf_unfiltered (file, "arc_dump_tdep:   last argument reg = %d\n",
+		      regnum->last_arg_regnum);
+  fprintf_unfiltered (file, "arc_dump_tdep:   first temporary reg = %d\n",
+		      regnum->first_temp_regnum);
+  fprintf_unfiltered (file, "arc_dump_tdep:   last temporary reg = %d\n",
+		      regnum->last_temp_regnum);
+  fprintf_unfiltered (file, "arc_dump_tdep:   first saved reg = %d\n",
+		      regnum->first_saved_regnum);
+  fprintf_unfiltered (file, "arc_dump_tdep:   last saved reg = %d\n",
+		      regnum->last_saved_regnum);
+
+  fprintf_unfiltered (file,
+		      "arc_dump_tdep: Simulator auxiliary register map:\n");
+  fprintf_unfiltered (file, "arc_dump_tdep:   register map size = %d\n",
+		      regnum->sim_aux_map_size);
+  for (i = 0; i < regnum->sim_aux_map_size; i++)
+    {
+      fprintf_unfiltered (file, "arc_dump_tdep:   GDB reg %d -> sim reg %d\n",
+			  sim_aux_map[i].gdb_regnum,
+			  sim_aux_map[i].sim_regnum);
+    }
+
+  fprintf_unfiltered (file, "arc_dump_tdep: is_sigtramp = %p\n",
+		      tdep->is_sigtramp);
+  fprintf_unfiltered (file, "arc_dump_tdep: sigcontext_addr = %p\n",
+		      tdep->sigcontext_addr);
+  fprintf_unfiltered (file, "arc_dump_tdep: sc_reg_offset = %p\n",
+		      tdep->sc_reg_offset);
+  fprintf_unfiltered (file, "arc_dump_tdep: sc_num_regs = %d\n",
+		      tdep->sc_num_regs);
+
 }	/* arc_dump_tdep () */
 
 
@@ -3747,11 +3795,12 @@ arc_regnum (struct gdbarch *gdbarch)
 int
 arc_sim_aux_reg_map_lookup (int  gdb_regnum)
 {
+  const struct arc_regnum *regnum = gdbarch_tdep (target_gdbarch)->regnum;
   int  i;
 
-  for (i = 0;  i < arc_sim_aux_map_size; i++)
-    if (arc_sim_aux_map[i].gdb_aux_regnum == gdb_regnum)
-      return arc_sim_aux_map[i].sim_aux_regnum;
+  for (i = 0;  i < regnum->sim_aux_map_size; i++)
+    if (regnum->sim_aux_map[i].gdb_regnum == gdb_regnum)
+      return regnum->sim_aux_map[i].sim_regnum;
 
   return  -1;
 

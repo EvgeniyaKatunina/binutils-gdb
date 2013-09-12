@@ -1,3 +1,17 @@
+2013-09-12  Jeremy Bennett <jeremy.bennett@embecosm.com>
+
+	* arc-tdep.c (struct arc_sim_aux_map_entry): Moved to arc-tdep.h
+	(arc_sim_aux_map_size, arc_sim_aux_map): Deleted.
+	(arc_tdesc_sim_aux_register): sim_aux_map is now part of regnum.
+	(arc_gdbarch_init): Build temporary sim_aux_map and copy
+	permanently into regnum structure. Initialize sim_aux_map and
+	sim_aux_map_size entries in arg_regnum.
+	(arc_dump_tdep): Implement contents.
+	(sim_aux_reg_lookup): Get data from regnum associated with
+	target_gdbarch.
+	* arc-tdep.h (struct arc_sim_aux_map_entry): Created.
+	(struct arc_regnum): Add sim_aux_map and sim_aux_map_size fields.
+
 2013-09-11  Jeremy Bennett <jeremy.bennett@embecosm.com>
 
 	Work in progress.
