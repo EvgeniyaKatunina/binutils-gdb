@@ -1,3 +1,37 @@
+2013-10-01  Jeremy Bennett <jeremy.bennett@embecosm.com>
+
+	Work in progress.
+
+	* arc-elf-tdep.c (PrintData): Struct deleted.
+	(arc_elf_breakpoint_from_pc, arc_elf_sim_map,arc_get_osabi):
+	Functions deleted.
+	* arc-linux-tdep.c (arc_linux_sc_reg_offset): Leave dimension
+	unspecified.
+	(arc_linux_core_reg_offsets): Likewise.
+	(arc_linux_next_pc): Get LP_END and LP_START regnums from target
+	dependency.
+	(arc_linux_supply_gregset): Get num regs from architecture.
+	(arc_gdbarch_osabi_init): Set target dependency number of
+	registers.
+	* arc-tdep.c: Include elf/arc.h and elf-bfd.h headers.
+	(arc_sim_map): New function.
+	(arc_tdesc_sim_aux_register): New arguments for sim reg map.
+	(arc_compare_reginfo): New function.
+	(arc_breakpoint_from_pc): New function.
+	(arc_gdbarch_init): Identify existing architecture, set up local
+	sim register map, extend tdep register info.
+	(arc_dump_tdep): Extend for more regingfo.
+	(arc_reginfo): New function.
+	(arc_sim_aux_reg_map_lookup): Use tdep rather than regnum.
+	* arc-tdep.c (arc_cpu, arc_isa_version, arc_abi): New enums.
+	(arc_sim_aux_map_entry): Make declaration conditional on WITH_SIM.
+	(arc_reginfo): New fields to indicate which aux reg groups are
+	present. Move sim_aux_map to tdep.
+	(gdbarch_tdep): Regnum field now reginfo, new fields: sim_aux_map,
+	cpu, isa and abi.
+	(arc_reginfo): New extern declaration to replace arc_regnum.
+	(configure.tgt): Remove dependency of ARC on arc-elf-tdep.o.
+
 2013-09-12  Jeremy Bennett <jeremy.bennett@embecosm.com>
 
 	* arc-tdep.c (struct arc_sim_aux_map_entry): Moved to arc-tdep.h

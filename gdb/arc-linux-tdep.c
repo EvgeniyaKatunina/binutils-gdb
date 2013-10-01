@@ -72,7 +72,7 @@
     arc_linux_sc_reg_offset[i] is the sigcontext offset of GDB regnum `i'. */
 
 /* From <asm/sigcontext.h>.  */
-static const int arc_linux_sc_reg_offset[ARC_NUM_RAW_REGS] = {
+static const int arc_linux_sc_reg_offset[] = {
   23 * BYTES_IN_REGISTER,	/* r0       */
   22 * BYTES_IN_REGISTER,	/* r1       */
   21 * BYTES_IN_REGISTER,	/* r2       */
@@ -121,7 +121,7 @@ static const int arc_linux_sc_reg_offset[ARC_NUM_RAW_REGS] = {
  * From include/asm-arc/user.h in the ARC Linux sources.
  */
 
-static const int arc_linux_core_reg_offsets[ARC_NUM_RAW_REGS] = {
+static const int arc_linux_core_reg_offsets[] = {
   22 * BYTES_IN_REGISTER,	/* r0       */
   21 * BYTES_IN_REGISTER,	/* r1       */
   20 * BYTES_IN_REGISTER,	/* r2       */
@@ -176,10 +176,13 @@ static const int arc_linux_core_reg_offsets[ARC_NUM_RAW_REGS] = {
     @todo This doesn't work if we are looking at a delay slot. We need to do
           something about that.
 
+    @param[in]  pc         Program counter
     @param[out] fall_thru  Set to the address of the next insn.
     @param[out] target     Set to the branch target. */
 static int
-arc_linux_next_pc (CORE_ADDR pc, CORE_ADDR *fall_thru, CORE_ADDR *target)
+arc_linux_next_pc (CORE_ADDR pc,
+		   CORE_ADDR *fall_thru,
+		   CORE_ADDR *target)
 {
   struct regcache *regcache = get_current_regcache ();
   struct gdbarch *gdbarch = get_regcache_arch (regcache);
@@ -187,6 +190,7 @@ arc_linux_next_pc (CORE_ADDR pc, CORE_ADDR *fall_thru, CORE_ADDR *target)
   struct arcDisState instr;
   int two_targets = FALSE;
   ULONGEST  lp_end, lp_start, lp_count, status32;
+  int lp_start_regnum, lp_end_regnum;
 
   /* so what is the instruction at the given pc? */
   arc_initialize_disassembler (gdbarch, &di);
@@ -250,8 +254,10 @@ arc_linux_next_pc (CORE_ADDR pc, CORE_ADDR *fall_thru, CORE_ADDR *target)
 
 
   /* Zero-overhead loops */
-  regcache_cooked_read_unsigned (regcache, ARC_AUX_LP_START_REGNUM, &lp_start);
-  regcache_cooked_read_unsigned (regcache, ARC_AUX_LP_END_REGNUM, &lp_end);
+  lp_start_regnum = gdbarch_tdep (gdbarch)->regnum->lp_start_regnum;
+  lp_end_regnum = gdbarch_tdep (gdbarch)->regnum->lp_end_regnum;
+  regcache_cooked_read_unsigned (regcache, lp_start_regnum, &lp_start);
+  regcache_cooked_read_unsigned (regcache, lp_end_regnum, &lp_end);
   regcache_cooked_read_unsigned (regcache, ARC_LP_COUNT_REGNUM, &lp_count);
   regcache_cooked_read_unsigned (regcache, ARC_AUX_STATUS32_REGNUM, &status32);
 
@@ -484,10 +490,11 @@ arc_linux_supply_gregset (const struct regset *regset,
 			  struct regcache *regcache,
 			  int regnum, const void *gregs, size_t size)
 {
+  struct gdbarch *gdbarch = get_regcache_arch (regcache);
   const bfd_byte *buf = gregs;
   unsigned int reg;
 
-  for (reg = 0; reg < ARC_NUM_RAW_REGS; reg++)
+  for (reg = 0; reg < gdbarch_num_regs (gdbarch); reg++)
     {
       if (arc_linux_core_reg_offsets[reg] != REGISTER_NOT_PRESENT)
 	regcache_raw_supply (regcache,
@@ -559,7 +566,8 @@ arc_gdbarch_osabi_init (struct gdbarch *gdbarch)
   tdep->is_sigtramp = arc_linux_is_sigtramp;
   tdep->sigcontext_addr = arc_linux_sigcontext_addr;
   tdep->sc_reg_offset = arc_linux_sc_reg_offset;
-  tdep->sc_num_regs = ARC_NUM_RAW_REGS;
+  tdep->sc_num_regs = sizeof (arc_linux_sc_reg_offset)
+    / sizeof (*arc_linux_sc_reg_offset);
 
   /* Set up target dependent GDB architecture entries. */
   set_gdbarch_breakpoint_from_pc (gdbarch, arc_linux_breakpoint_from_pc);

@@ -287,24 +287,48 @@
 /* Globally visible datatypes                                                 */
 /* -------------------------------------------------------------------------- */
 
+/* All the possible ARC CPUs.  */
+enum arc_cpu
+  {
+    ARC_CPU_UNKNOWN = 0,
+    ARC_CPU_ARC600,
+    ARC_CPU_ARC601,
+    ARC_CPU_ARC700,
+    ARC_CPU_ARCV2
+  };
+
 /*! Distinguish which ISA we are using. */
-enum arc_isa_version {
+enum arc_isa {
+  ARC_ISA_UNKNOWN = 0,
   ARC_ISA_V1,
-  ARC_ISA_V2,
-  ARC_ISA_UNKNOWN
+  ARC_ISA_V2
 };
 
+/* All the possible ARC ABIs.  */
+enum arc_abi
+  {
+    ARC_ABI_UNKNOWN = 0,
+    ARC_ABI_ORIG,
+    ARC_ABI_V2,
+    ARC_ABI_V3
+  };
+
+#ifdef WITH_SIM
 /*! Simulator aux register mapping */
 struct arc_sim_aux_map_entry
 {
   int  gdb_regnum;
   int  sim_regnum;
 };
+#endif
 
-/*! Register details */
-struct arc_regnum
+/*! Register details
+
+    @note  If you change this, you must also change the function
+           arc_compare_reginfo in arc-tdep.c. */
+struct arc_reginfo
 {
-  enum arc_isa_version  isa_version;
+  enum arc_isa  isa;			/* ISA as determined from XML */
   int is_reduced_core_p;
   int is_extended_core_p;
   int first_arg_regnum;
@@ -313,8 +337,21 @@ struct arc_regnum
   int last_temp_regnum;
   int first_saved_regnum;
   int last_saved_regnum;
-  struct arc_sim_aux_map_entry *sim_aux_map;
-  int sim_aux_map_size;
+  int lp_start_regnum;
+  int lp_end_regnum;
+  int have_aux_iset_p;
+  int have_aux_debug_p;
+  int have_aux_exception_p;
+  int have_aux_timer_p;
+  int have_aux_user_p;
+  int have_aux_bcr_p;
+  int have_aux_icache_p;
+  int have_aux_dcache_p;
+  int have_aux_dccm_p;
+  int have_aux_iccm_p;
+  int have_aux_pmr_p;
+  int have_aux_mpu_p;
+  int have_aux_smart_p;
 };
 
 /*! Target dependencies.
@@ -329,10 +366,27 @@ struct arc_regnum
           type and access its fields. */
 struct gdbarch_tdep
 {
-  /* Info about registers. */
-  struct arc_regnum *regnum;
+  /*! Info about registers. */
+  struct arc_reginfo *reginfo;
 
-  /* Detect sigtramp.  */
+#ifdef WITH_SIM
+  /*! Map from GDB to simulator auxiliary register numbers. */
+  struct arc_sim_aux_map_entry *sim_aux_map;
+
+  /*! Number of GDB to simulator auxiliary register mappings. */
+  int sim_aux_map_size;
+#endif
+
+  /*! CPU */
+  enum arc_cpu  cpu;
+
+  /*! ISA (from ELF header) */
+  enum arc_isa  isa;
+
+  /*! ABI */
+  enum arc_abi  abi;
+
+  /*! Detect sigtramp.  */
   int (*is_sigtramp) (struct frame_info*);
   
   /* Get address of sigcontext for sigtramp.  */
@@ -360,14 +414,13 @@ extern struct arcDisState arcAnalyzeInstr (bfd_vma address,
 
 /* From arc-tdep.c */
 extern int  arc_debug;
-extern const struct arc_regnum *arc_regnum (struct gdbarch *gdbarch);
+extern const struct arc_reginfo *arc_reginfo (struct gdbarch *gdbarch);
 extern int  arc_sim_aux_reg_map_lookup (int  gdb_regnum);
 extern void _initialize_arc_tdep (void);
 extern void arc_initialize_disassembler(struct gdbarch *gdbarch,
 					struct disassemble_info* info);
 
 /* From arc-linux.c or arc-elf32.c */
-extern enum gdb_osabi arc_get_osabi (void);
 extern void arc_gdbarch_osabi_init (struct gdbarch *gdbarch);
 
 #endif /* ARC_TDEP_H */

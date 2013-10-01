@@ -188,11 +188,15 @@
 #include "objfiles.h"
 #include "target-descriptions.h"
 
-/* ARC header files */
+/* Binutils header files */
+#include "elf/arc.h"
+#include "elf-bfd.h"
 #include "opcode/arc.h"
 #include "opcodes/arc-dis-old.h"
 #include "opcodes/arc-ext.h"
 #include "opcodes/arcompact-dis.h"
+
+/* ARC header files */
 #include "arc-tdep.h"
 
 #ifdef WITH_SIM
@@ -1255,26 +1259,71 @@ arc_store_return_value (struct gdbarch *gdbarch, struct type *type,
 }	/* arc_store_return_value () */
 
 
+#ifdef WITH_SIM
+/*! Map GDB registers to ARC simulator registers
+
+    The ARC CGEN based simulator has its own register numbering. This function
+    provides the necessary mapping
+
+    The simulator does not have a simple numbering. Rather registers are known
+    by a class and a number.
+
+    @param[in]  gdb_regnum  The GDB register number to map
+    @param[out] sim_regnum  The corresponding simulator register
+    @param[out] reg_class   The corresponding ARC register class */
+static void
+arc_sim_map (int                gdb_regnum,
+		 int*               sim_regnum,
+		 ARC_RegisterClass *reg_class)
+{
+  if ((0 <= gdb_regnum) && (gdb_regnum <= ARC_LP_COUNT_REGNUM))
+    {
+      /* All core registers apart from reserved, LIMM and PCL have an
+	 identity mapping. */
+      *sim_regnum = gdb_regnum;
+      *reg_class  = ARC_CORE_REGISTER;
+    }
+  else if (ARC_PC_REGNUM == gdb_regnum)
+    {
+      /* sim_regnum irrelevant. */
+      *reg_class = ARC_PROGRAM_COUNTER;
+    }
+  else
+    {
+      *sim_regnum = arc_sim_aux_reg_map_lookup (gdb_regnum);
+
+      if (*sim_regnum == -1)
+	  *reg_class = ARC_UNKNOWN_REGISTER;
+      else
+	*reg_class  = ARC_AUX_REGISTER;
+    }
+}	/* arc_sim_map () */
+#endif
+
+
 /*! Add an aux register to target description and record sim aux reg mapping.
 
     This is a wrapper for tdesc_numbered_register, which also creates an entry
     for mapping GDB register number to simulator auxiliary register number.
 
-    The mapping is only created if we have a V1 ISA (V2 ISA does not support
-    the simulator), so this function can be safely called from V2 ISA, when it
+    The mapping is only created if we have a mapping table, which only occurs
+    with a V1 ISA under ELF (Linux and V2 ISA under ELF does not support the
+    simulator), so this function can be safely called from V2 ISA, when it
     will ignore the simulator number and just be a wrapper for
     tdesc_numbered_register.
 
-    @param[in]  regnum		Details of registers we are analysing
-    @param[in]  feature         Target description feature to use
-    @param[out] data            Architecture target description data
-    @param[in]  gdb_regnum      The GDB register number
-    @param[in]  sim_aux_regnum  The simulator aux regnum to map to
-    @param[in]  name            Name of the register in the target
-                                description.
+    @param[in]     sim_aux_map       The register map
+    @param[in,out] sim_aux_map_size  Current number of mappings
+    @param[in]     feature           Target description feature to use
+    @param[out]    data              Architecture target description data
+    @param[in]     gdb_regnum        The GDB register number
+    @param[in]     sim_aux_regnum    The simulator aux regnum to map to
+    @param[in]     name              Name of the register in the target
+                                     description.
     @return  True if the register was found in the numbered description. */
 static int
-arc_tdesc_sim_aux_register (struct arc_regnum *regnum,
+arc_tdesc_sim_aux_register (struct arc_sim_aux_map_entry *sim_aux_map,
+			    int *sim_aux_map_size_ptr,
 			    const struct tdesc_feature *feature,
 			    struct tdesc_arch_data *data,
 			    int gdb_regnum,
@@ -1287,18 +1336,79 @@ arc_tdesc_sim_aux_register (struct arc_regnum *regnum,
   res = tdesc_numbered_register (feature, data, gdb_regnum, name);
 
   /* Maybe save it in the mapping table. */
-  if (regnum->isa_version == ARC_ISA_V1)
+  if (sim_aux_map)
     {
-      gdb_assert (regnum->sim_aux_map_size < ARC_MAX_SIM_AUX_REGS);
-      regnum->sim_aux_map[regnum->sim_aux_map_size].gdb_regnum = gdb_regnum;
-      regnum->sim_aux_map[regnum->sim_aux_map_size].sim_regnum = sim_regnum;
-      regnum->sim_aux_map_size++;
+      gdb_assert (*sim_aux_map_size_ptr < ARC_MAX_SIM_AUX_REGS);
+      sim_aux_map[*sim_aux_map_size_ptr].gdb_regnum = gdb_regnum;
+      sim_aux_map[*sim_aux_map_size_ptr].sim_regnum = sim_regnum;
+      (*sim_aux_map_size_ptr)++;
     }
 
   return  res;
 
 }	/* arc_tdesc_sim_aux_register () */
 
+
+/*! Compare two register info structures.
+
+    @param[in] ria  First struct
+    @param[in] rib  Second struct
+    @return  Non-zero (TRUE) if identical, zero (FALSE) otherwise */
+static int arc_compare_reginfo (struct arc_reginfo *ria,
+				struct arc_reginfo *rib)
+{
+  if (ria->isa != rib->isa)
+    return FALSE;
+  else if (ria->is_reduced_core_p != rib->is_reduced_core_p)
+    return FALSE;
+  else if (ria->is_extended_core_p != rib->is_extended_core_p)
+    return FALSE;
+  else if (ria->first_arg_regnum != rib->first_arg_regnum)
+    return FALSE;
+  else if (ria->last_arg_regnum != rib->last_arg_regnum)
+    return FALSE;
+  else if (ria->first_temp_regnum != rib->first_temp_regnum)
+    return FALSE;
+  else if (ria->last_temp_regnum != rib->last_temp_regnum)
+    return FALSE;
+  else if (ria->first_saved_regnum != rib->first_saved_regnum)
+    return FALSE;
+  else if (ria->last_saved_regnum != rib->last_saved_regnum)
+    return FALSE;
+  else if (ria->lp_start_regnum != rib->lp_start_regnum)
+    return FALSE;
+  else if (ria->lp_end_regnum != rib->lp_end_regnum)
+    return FALSE;
+  else if (ria->have_aux_iset_p != rib->have_aux_iset_p)
+    return FALSE;
+  else if (ria->have_aux_debug_p != rib->have_aux_debug_p)
+    return FALSE;
+  else if (ria->have_aux_exception_p != rib->have_aux_exception_p)
+    return FALSE;
+  else if (ria->have_aux_timer_p != rib->have_aux_timer_p)
+    return FALSE;
+  else if (ria->have_aux_user_p != rib->have_aux_user_p)
+    return FALSE;
+  else if (ria->have_aux_bcr_p != rib->have_aux_bcr_p)
+    return FALSE;
+  else if (ria->have_aux_icache_p != rib->have_aux_icache_p)
+    return FALSE;
+  else if (ria->have_aux_dcache_p != rib->have_aux_dcache_p)
+    return FALSE;
+  else if (ria->have_aux_dccm_p != rib->have_aux_dccm_p)
+    return FALSE;
+  else if (ria->have_aux_iccm_p != rib->have_aux_iccm_p)
+    return FALSE;
+  else if (ria->have_aux_pmr_p != rib->have_aux_pmr_p)
+    return FALSE;
+  else if (ria->have_aux_mpu_p != rib->have_aux_mpu_p)
+    return FALSE;
+  else if (ria->have_aux_smart_p != rib->have_aux_smart_p)
+    return FALSE;
+  else
+    return TRUE;
+
+}	/* arc_compare_reginfo () */
 
 
 /* -------------------------------------------------------------------------- */
@@ -1331,7 +1441,6 @@ arc_tdesc_sim_aux_register (struct arc_regnum *regnum,
    @param[in]  pc          Program counter where we need the virtual FP.
    @param[out] reg_ptr     The base register used for the virtual FP.
    @param[out] offset_ptr  The offset used for the virtual FP.                */
-/*----------------------------------------------------------------------------*/
 static void
 arc_virtual_frame_pointer (struct gdbarch *gdbarch,
 			    CORE_ADDR       pc,
@@ -1911,6 +2020,35 @@ arc_skip_prologue (struct gdbarch *gdbarch, CORE_ADDR pc)
 }	/* arc_skip_prologue () */
 
 
+/*! Get breakpoint which is approriate for address at which it is to be set.
+
+    This default version is suitable when the OS ABI is unknown (i.e. bare
+    metal ELF). The breakpoint uses the 16-bit BRK_S instruction, which is
+    0x7fff (little endian) or 0xff7f (big endian).
+
+    This may be overriden by an OS ABI handler if registered, since ARC Linux
+    currently uses a different breakpoint instruction.
+
+    @param[in]     gdbarch  Current GDB architecture
+    @param[in,out] pcptr    Pointer to the PC where we want to place a
+                            breakpoint
+    @param[out]    lenptr   Number of bytes used by the breakpoint.
+    @return                 The byte sequence of a breakpoint instruction. */
+static const unsigned char *
+arc_breakpoint_from_pc (struct gdbarch *gdbarch, CORE_ADDR * pcptr,
+			    int *lenptr)
+{
+  static const unsigned char breakpoint_instr_be[] = { 0x7f, 0xff };
+  static const unsigned char breakpoint_instr_le[] = { 0xff, 0x7f };
+
+  *lenptr = sizeof (breakpoint_instr_be);
+  return (gdbarch_byte_order (gdbarch) == BFD_ENDIAN_BIG)
+    ? breakpoint_instr_be
+    : breakpoint_instr_le;
+
+}	/* arc_breakpoint_from_pc () */
+
+
 /*! Unwind the program counter.
 
     @param[in] next_frame  NEXT frame from which the PC in THIS frame should be
@@ -2379,14 +2517,50 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   struct gdbarch_tdep *tdep;
   struct gdbarch *gdbarch;
   struct tdesc_arch_data *tdesc_data = NULL;
+  int  elf_flags;
+  int  elf_machine;
+  enum arc_cpu  cpu;
+  enum arc_isa  isa;
+  enum arc_abi  abi;
   int  num_regs;
-  struct arc_regnum arc_regnum;		/* Temporary */
-  struct arc_sim_aux_map_entry arc_sim_aux_map[ARC_MAX_SIM_AUX_REGS];
+  struct arc_reginfo arc_reginfo;		/* Temporary */
+  struct arc_reginfo *reginfo;
+  struct arc_sim_aux_map_entry local_arc_sim_aux_map[ARC_MAX_SIM_AUX_REGS];
+  struct arc_sim_aux_map_entry *arc_sim_aux_map;
+  int arc_sim_aux_map_size;
 
-  /* Determine which OSABI we have. A different version of this function is
-     linked in for each GDB target. Must do this before we allocate the
-     gdbarch, since it is copied into the gdbarch! */
-  info.osabi = arc_get_osabi ();
+#ifdef WITH_SIM
+  /* Only have simulator with non-Linux targets */
+  arc_sim_aux_map_size = 0;
+  if (info.osabi != GDB_OSABI_LINUX)
+    arc_sim_aux_map = local_arc_sim_aux_map;
+  else
+    arc_sim_aux_map = NULL;
+#endif
+
+  /* Default register info suitable for all OS ABIs */
+  arc_reginfo.isa = ARC_ISA_UNKNOWN;
+  arc_reginfo.is_reduced_core_p = FALSE;
+  arc_reginfo.is_extended_core_p = FALSE;
+  arc_reginfo.first_arg_regnum = ARC_FIRST_ARG_REGNUM;
+  arc_reginfo.last_arg_regnum = ARC_LAST_ARG_REGNUM;
+  arc_reginfo.first_temp_regnum = ARC_FIRST_TEMP_REGNUM;
+  arc_reginfo.last_temp_regnum = ARC_LAST_TEMP_REGNUM;
+  arc_reginfo.first_saved_regnum = ARC_FIRST_SAVED_REGNUM;
+  arc_reginfo.last_saved_regnum = ARC_LAST_SAVED_REGNUM;
+  arc_reginfo.have_aux_iset_p = FALSE;
+  arc_reginfo.have_aux_debug_p = FALSE;
+  arc_reginfo.have_aux_exception_p = FALSE;
+  arc_reginfo.have_aux_timer_p = FALSE;
+  arc_reginfo.have_aux_user_p = FALSE;
+  arc_reginfo.have_aux_bcr_p = FALSE;
+  arc_reginfo.have_aux_icache_p = FALSE;
+  arc_reginfo.have_aux_dcache_p = FALSE;
+  arc_reginfo.have_aux_dccm_p = FALSE;
+  arc_reginfo.have_aux_iccm_p = FALSE;
+  arc_reginfo.have_aux_pmr_p = FALSE;
+  arc_reginfo.have_aux_mpu_p = FALSE;
+  arc_reginfo.have_aux_smart_p = FALSE;
 
   /* Sort out the registers from the target description, if available. */
   if (tdesc_has_registers (info.target_desc))
@@ -2394,22 +2568,6 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       const struct tdesc_feature *feature;
       const char *featname1;
       const char *featname2;
-
-      /* Start counting registers */
-      num_regs = 0;
-
-      /* Default register info */
-      arc_regnum.isa_version = ARC_ISA_UNKNOWN;
-      arc_regnum.is_reduced_core_p = FALSE;
-      arc_regnum.is_extended_core_p = FALSE;
-      arc_regnum.first_arg_regnum = ARC_FIRST_ARG_REGNUM;
-      arc_regnum.last_arg_regnum = ARC_LAST_ARG_REGNUM;
-      arc_regnum.first_temp_regnum = ARC_FIRST_TEMP_REGNUM;
-      arc_regnum.last_temp_regnum = ARC_LAST_TEMP_REGNUM;
-      arc_regnum.first_saved_regnum = ARC_FIRST_SAVED_REGNUM;
-      arc_regnum.last_saved_regnum = ARC_LAST_SAVED_REGNUM;
-      arc_regnum.sim_aux_map = arc_sim_aux_map;
-      arc_regnum.sim_aux_map_size = 0;
 
       /* We must have either the core or reduced core basecase registers */
       featname1 = "org.gnu.gdb.arc.core-basecase";
@@ -2432,10 +2590,10 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	  tdesc_data = tdesc_data_alloc ();
 
 	  /* Argument registers */
-	  num_regs = arc_regnum.first_arg_regnum;
+	  num_regs = arc_reginfo.first_arg_regnum;
 	  for (i = 0; arc_arg_regs[i]; i++)
 	    {
-	      gdb_assert (num_regs <= arc_regnum.last_arg_regnum);
+	      gdb_assert (num_regs <= arc_reginfo.last_arg_regnum);
 	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
 					    arc_arg_regs[i]))
 		{
@@ -2448,10 +2606,10 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	    }
 
 	  /* Temporary registers */
-	  num_regs = arc_regnum.first_temp_regnum;
+	  num_regs = arc_reginfo.first_temp_regnum;
 	  for (i = 0; arc_temp_regs[i]; i++)
 	    {
-	      gdb_assert (num_regs <= arc_regnum.last_temp_regnum);
+	      gdb_assert (num_regs <= arc_reginfo.last_temp_regnum);
 	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
 					    arc_temp_regs[i]))
 		{
@@ -2464,10 +2622,10 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	    }
 
 	  /* Saved registers */
-	  num_regs = arc_regnum.first_saved_regnum;
+	  num_regs = arc_reginfo.first_saved_regnum;
 	  for (i = 0; arc_saved_regs[i]; i++)
 	    {
-	      gdb_assert (num_regs <= arc_regnum.last_saved_regnum);
+	      gdb_assert (num_regs <= arc_reginfo.last_saved_regnum);
 	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
 					    arc_saved_regs[i]))
 		{
@@ -2496,21 +2654,19 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	  tdesc_data = tdesc_data_alloc ();
 
 	  /* Reduced register numbers */
-	  arc_regnum.is_reduced_core_p = TRUE;
-	  arc_regnum.first_arg_regnum = ARC_REDUCED_FIRST_ARG_REGNUM;
-	  arc_regnum.last_arg_regnum = ARC_REDUCED_LAST_ARG_REGNUM;
-	  arc_regnum.first_temp_regnum = ARC_REDUCED_FIRST_TEMP_REGNUM;
-	  arc_regnum.last_temp_regnum = ARC_REDUCED_LAST_TEMP_REGNUM;
-	  arc_regnum.first_saved_regnum = ARC_REDUCED_FIRST_SAVED_REGNUM;
-	  arc_regnum.last_saved_regnum = ARC_REDUCED_LAST_SAVED_REGNUM;
-	  arc_regnum.sim_aux_map = arc_sim_aux_map;
-	  arc_regnum.sim_aux_map_size = 0;
+	  arc_reginfo.is_reduced_core_p = TRUE;
+	  arc_reginfo.first_arg_regnum = ARC_REDUCED_FIRST_ARG_REGNUM;
+	  arc_reginfo.last_arg_regnum = ARC_REDUCED_LAST_ARG_REGNUM;
+	  arc_reginfo.first_temp_regnum = ARC_REDUCED_FIRST_TEMP_REGNUM;
+	  arc_reginfo.last_temp_regnum = ARC_REDUCED_LAST_TEMP_REGNUM;
+	  arc_reginfo.first_saved_regnum = ARC_REDUCED_FIRST_SAVED_REGNUM;
+	  arc_reginfo.last_saved_regnum = ARC_REDUCED_LAST_SAVED_REGNUM;
 
 	  /* Argument registers */
-	  num_regs = arc_regnum.first_arg_regnum;
+	  num_regs = arc_reginfo.first_arg_regnum;
 	  for (i = 0; arc_arg_regs[i]; i++)
 	    {
-	      gdb_assert (num_regs <= arc_regnum.last_arg_regnum);
+	      gdb_assert (num_regs <= arc_reginfo.last_arg_regnum);
 	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
 					    arc_arg_regs[i]))
 		{
@@ -2523,10 +2679,10 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	    }
 
 	  /* Temporary registers */
-	  num_regs = arc_regnum.first_temp_regnum;
+	  num_regs = arc_reginfo.first_temp_regnum;
 	  for (i = 0; arc_temp_regs[i]; i++)
 	    {
-	      gdb_assert (num_regs <= arc_regnum.last_temp_regnum);
+	      gdb_assert (num_regs <= arc_reginfo.last_temp_regnum);
 	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
 					    arc_temp_regs[i]))
 		{
@@ -2539,10 +2695,10 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	    }
 
 	  /* Saved registers */
-	  num_regs = arc_regnum.first_saved_regnum;
+	  num_regs = arc_reginfo.first_saved_regnum;
 	  for (i = 0; arc_saved_regs[i]; i++)
 	    {
-	      gdb_assert (num_regs <= arc_regnum.last_saved_regnum);
+	      gdb_assert (num_regs <= arc_reginfo.last_saved_regnum);
 	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
 					    arc_saved_regs[i]))
 		{
@@ -2625,7 +2781,7 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	  const char *featname1 = "org.gnu.gdb.arc.core-linkregs.v1";
 	  int  i;
 
-	  arc_regnum.isa_version = ARC_ISA_V1;
+	  arc_reginfo.isa = ARC_ISA_V1;
 
 	  /* Link registers for V1 ISA */
 	  if (!tdesc_numbered_register_choices (feature, tdesc_data,
@@ -2664,7 +2820,10 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	    "r31", "blink", NULL };
 	  int  i;
 
-	  arc_regnum.isa_version = ARC_ISA_V2;
+	  arc_reginfo.isa = ARC_ISA_V2;
+#ifdef WITH_SIM
+	  arc_sim_aux_map = NULL;	/* No simulator for V2 ISA */
+#endif
 
 	  /* Link registers for V2 ISA */
 	  if (!tdesc_numbered_register_choices (feature, tdesc_data,
@@ -2714,7 +2873,7 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	  };
 	  int  i;
 
-	  arc_regnum.is_extended_core_p = TRUE;
+	  arc_reginfo.is_extended_core_p = TRUE;
 
 	  /* Extended registers */
 	  num_regs = ARC_FIRST_EXTENSION_REGNUM;
@@ -2782,7 +2941,7 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       if ((feature = tdesc_find_feature (info.target_desc, featname1)))
 	{
 
-	  if (arc_regnum.isa_version != ARC_ISA_V1)
+	  if (arc_reginfo.isa != ARC_ISA_V1)
 	    {
 	      warning (_("ARC baseline auxiliary regs V1 do not match ISA "
 			 "version of core"));
@@ -2809,9 +2968,11 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					      ARC_AUX_STATUS32_REGNUM,
-					      ARC_AUX_STATUS32_SIM_REGNUM,
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data,
+					   ARC_AUX_STATUS32_REGNUM,
+					   ARC_AUX_STATUS32_SIM_REGNUM,
 					   "status32"))
 	    {
 	      warning (_("STATUS32 auxiliary register not found in target "
@@ -2823,26 +2984,29 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	  /* End of numbered regs */
 	  num_regs = ARC_MAX_NUMBERED_REGS;
 
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					   num_regs++, ARC_AUX_BTA_SIM_REGNUM,
-					   "bta"))
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
+					   ARC_AUX_BTA_SIM_REGNUM, "bta"))
 	    {
 	      warning (_("BTA auxiliary register not found in target "
 			 "description feature %s"), featname1);
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					  num_regs++, ARC_AUX_ECR_SIM_REGNUM,
-					  "ecr"))
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
+					   ARC_AUX_ECR_SIM_REGNUM, "ecr"))
 	    {
 	      warning (_("ECR auxiliary register not found in target "
 			 "description feature %s"), featname1);
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					   num_regs++,
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
 					   ARC_AUX_ICAUSE1_SIM_REGNUM,
 					   "icause1"))
 	    {
@@ -2851,8 +3015,9 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					   num_regs++,
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
 					   ARC_AUX_ICAUSE2_SIM_REGNUM,
 					   "icause2"))
 	    {
@@ -2869,8 +3034,9 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					   num_regs++,
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
 					   ARC_AUX_AUX_IRQ_LV12_SIM_REGNUM,
 					   "aux_irq_lv12"))
 	    {
@@ -2879,8 +3045,9 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					  num_regs++,
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
 					  ARC_AUX_STATUS32_L1_SIM_REGNUM,
 					  "status32_l1"))
 	    {
@@ -2889,38 +3056,40 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					  num_regs++,
-					  ARC_AUX_STATUS32_L2_SIM_REGNUM,
-					  "status32_l2"))
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
+					   ARC_AUX_STATUS32_L2_SIM_REGNUM,
+					   "status32_l2"))
 	    {
 	      warning (_("STATUS32_L2 auxiliary register not found in target "
 			 "description feature %s"), featname1);
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					  num_regs++,
-					  ARC_AUX_ERET_SIM_REGNUM,
-					  "eret"))
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
+					  ARC_AUX_ERET_SIM_REGNUM, "eret"))
 	    {
 	      warning (_("ERET auxiliary register not found in target "
 			 "description feature %s"), featname1);
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					  num_regs++,
-					  ARC_AUX_ERBTA_SIM_REGNUM,
-					  "erbta"))
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
+					  ARC_AUX_ERBTA_SIM_REGNUM, "erbta"))
 	    {
 	      warning (_("ERBTA auxiliary register not found in target "
 			 "description feature %s"), featname1);
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					  num_regs++,
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
 					  ARC_AUX_ERSTATUS_SIM_REGNUM,
 					  "erstatus"))
 	    {
@@ -2969,8 +3138,9 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					  num_regs++,
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
 					  ARC_AUX_AUX_IRQ_LEV_SIM_REGNUM,
 					  "aux_irq_lev"))
 	    {
@@ -2979,8 +3149,9 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					  num_regs++,
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
 					  ARC_AUX_AUX_IRQ_HINT_SIM_REGNUM,
 					  "aux_irq_hint"))
 	    {
@@ -2989,8 +3160,9 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					  num_regs++,
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
 					  ARC_AUX_AUX_IENABLE_SIM_REGNUM,
 					  "aux_ienable"))
 	    {
@@ -2999,8 +3171,9 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					  num_regs++,
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
 					  ARC_AUX_AUX_ITRIGGER_SIM_REGNUM,
 					  "aux_itrigger"))
 	    {
@@ -3009,8 +3182,9 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					  num_regs++,
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
 					  ARC_AUX_AUX_IRQ_PULSE_CANCEL_SIM_REGNUM,
 					  "aux_irq_pulse_cancel"))
 	    {
@@ -3019,8 +3193,9 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					  num_regs++,
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
 					  ARC_AUX_AUX_IRQ_PENDING_SIM_REGNUM,
 					  "aux_irq_pending"))
 	    {
@@ -3041,7 +3216,7 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	  };
 	  int  i;
 
-	  if (arc_regnum.isa_version != ARC_ISA_V2)
+	  if (arc_reginfo.isa != ARC_ISA_V2)
 	    {
 	      warning (_("ARC baseline auxiliary regs V2 do not match ISA "
 			 "version of core"));
@@ -3114,8 +3289,10 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	  };
 	  int  i;
 
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					   num_regs++,
+	  arc_reginfo.lp_start_regnum = num_regs;
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
 					   ARC_AUX_LP_START_SIM_REGNUM,
 					   "lp_start"))
 	    {
@@ -3124,8 +3301,10 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					  num_regs++,
+	  arc_reginfo.lp_end_regnum = num_regs;
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
 					  ARC_AUX_LP_END_SIM_REGNUM,
 					  "lp_end"))
 	    {
@@ -3147,6 +3326,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 		  return NULL;
 		}
 	    }
+
+	  arc_reginfo.have_aux_iset_p = TRUE;
 	}
 
       /* Optional external host debug auxiliary registers */
@@ -3161,6 +3342,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
+
+	  arc_reginfo.have_aux_debug_p = TRUE;
 	}
 
       /* Optional extended exception state auxiliary registers, V1 or V2
@@ -3169,7 +3352,7 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       featname2 = "org.gnu.gdb.arc.aux-exception.v2";
       if ((feature = tdesc_find_feature (info.target_desc, featname1)))
 	{
-	  if (arc_regnum.isa_version != ARC_ISA_V1)
+	  if (arc_reginfo.isa != ARC_ISA_V1)
 	    {
 	      warning (_("ARC extended exception state auxiliary regs V1 do "
 			 "not match ISA version of core"));
@@ -3177,39 +3360,42 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      return NULL;
 	    } 
 
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					   num_regs++, ARC_AUX_EFA_SIM_REGNUM,
-					   "efa"))
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
+					   ARC_AUX_EFA_SIM_REGNUM, "efa"))
 	    {
 	      warning (_("EFA auxiliary register not found in "
 			 "target description feature %s"), featname1);
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					   num_regs++,
-					   ARC_AUX_BTA_L1_SIM_REGNUM,
-					   "bta_l1"))
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
+					   ARC_AUX_BTA_L1_SIM_REGNUM, "bta_l1"))
 	    {
 	      warning (_("BTA_L1 auxiliary register not found in "
 			 "target description feature %s"), featname1);
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					   num_regs++,
-					   ARC_AUX_BTA_L2_SIM_REGNUM,
-					   "bta_l2"))
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
+					   ARC_AUX_BTA_L2_SIM_REGNUM, "bta_l2"))
 	    {
 	      warning (_("BTA_L2 auxiliary register not found in "
 			 "target description feature %s"), featname1);
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
+
+	  arc_reginfo.have_aux_exception_p = TRUE;
 	}
       else if ((feature = tdesc_find_feature (info.target_desc, featname2)))
 	{
-	  if (arc_regnum.isa_version != ARC_ISA_V2)
+	  if (arc_reginfo.isa != ARC_ISA_V2)
 	    {
 	      warning (_("ARC extended exception state auxiliary regs V2 do "
 			 "not match ISA version of core"));
@@ -3217,15 +3403,18 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      return NULL;
 	    } 
 
-	  if (!arc_tdesc_sim_aux_register (&arc_regnum, feature, tdesc_data,
-					   num_regs++, ARC_AUX_EFA_SIM_REGNUM,
-					   "efa"))
+	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+					   &arc_sim_aux_map_size, feature,
+					   tdesc_data, num_regs++,
+					   ARC_AUX_EFA_SIM_REGNUM, "efa"))
 	    {
 	      warning (_("EFA auxiliary register not found in "
 			 "target description feature %s"), featname2);
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
+
+	  arc_reginfo.have_aux_exception_p = TRUE;
 	}
 
       /* Optional timer auxiliary registers */
@@ -3240,7 +3429,7 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	  };
 	  int  i;
 
-	  if (arc_regnum.isa_version != ARC_ISA_V1)
+	  if (arc_reginfo.isa != ARC_ISA_V1)
 	    {
 	      warning (_("ARC timer auxiliary regs V1 do "
 			 "not match ISA version of core"));
@@ -3260,6 +3449,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 		  return NULL;
 		}
 	    }
+
+	  arc_reginfo.have_aux_timer_p = TRUE;
 	}
       else if ((feature = tdesc_find_feature (info.target_desc, featname2)))
 	{
@@ -3271,7 +3462,7 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	  };
 	  int  i;
 
-	  if (arc_regnum.isa_version != ARC_ISA_V2)
+	  if (arc_reginfo.isa != ARC_ISA_V2)
 	    {
 	      warning (_("ARC timer auxiliary regs V2 do "
 			 "not match ISA version of core"));
@@ -3291,6 +3482,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 		  return NULL;
 		}
 	    }
+
+	  arc_reginfo.have_aux_timer_p = TRUE;
 	}
 
       /* Optional user extension auxiliary registers */
@@ -3305,6 +3498,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
+
+	  arc_reginfo.have_aux_user_p = TRUE;
 	}
 
       /* Optional build configuration auxiliary registers */
@@ -3353,7 +3548,10 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 		  return NULL;
 		}
 	    }
+
+	  arc_reginfo.have_aux_bcr_p = TRUE;
 	}
+
       /* Optional instruction cache auxiliary registers */
       featname1 = "org.gnu.gdb.arc.aux-icache";
       if ((feature = tdesc_find_feature (info.target_desc, featname1)))
@@ -3377,6 +3575,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 		  return NULL;
 		}
 	    }
+
+	  arc_reginfo.have_aux_icache_p = TRUE;
 	}
 
       /* Optional data cache auxiliary registers */
@@ -3403,6 +3603,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 		  return NULL;
 		}
 	    }
+
+	  arc_reginfo.have_aux_dcache_p = TRUE;
 	}
 
       /* Optional DCCM auxiliary registers */
@@ -3427,6 +3629,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 		  return NULL;
 		}
 	    }
+
+	  arc_reginfo.have_aux_dccm_p = TRUE;
 	}
 
       /* Optional ICCM auxiliary registers */
@@ -3451,6 +3655,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 		  return NULL;
 		}
 	    }
+
+	  arc_reginfo.have_aux_iccm_p = TRUE;
 	}
 
       /* Optional peripheral memory region auxiliary registers */
@@ -3465,6 +3671,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      tdesc_data_cleanup (tdesc_data);
 	      return NULL;
 	    }
+
+	  arc_reginfo.have_aux_pmr_p = TRUE;
 	}
 
       /* Optional memory protection unit auxiliary registers (V2 ISA only) */
@@ -3485,7 +3693,7 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	  };
 	  int  i;
 
-	  if (arc_regnum.isa_version != ARC_ISA_V2)
+	  if (arc_reginfo.isa != ARC_ISA_V2)
 	    {
 	      warning (_("ARC MPU auxiliary regs V2 do "
 			 "not match ISA version of core"));
@@ -3505,6 +3713,8 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 		  return NULL;
 		}
 	    }
+
+	  arc_reginfo.have_aux_mpu_p = TRUE;
 	}
 
       /* Optional SmaRT auxiliary registers (V2 ISA only) */
@@ -3517,7 +3727,7 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	  };
 	  int  i;
 
-	  if (arc_regnum.isa_version != ARC_ISA_V2)
+	  if (arc_reginfo.isa != ARC_ISA_V2)
 	    {
 	      warning (_("ARC SmaRT auxiliary regs V2 do "
 			 "not match ISA version of core"));
@@ -3537,20 +3747,299 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 		  return NULL;
 		}
 	    }
+
+	  arc_reginfo.have_aux_smart_p = TRUE;
 	}
     }
   else
     {
-      /* @todo No XML target description. Do default stuff here. */
-      num_regs = ARC_MAX_NUMBERED_REGS;
+#ifdef WITH_SIM
+      /* If we have no target description, we've better set up a default
+	 simulator auxiliary register map. This is a historic order. */
+      static struct arc_sim_aux_map_entry default_sim_aux_map [] = {
+	{ ARC_AUX_STATUS32_REGNUM -  1, ARC_AUX_LP_START_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM -  2, ARC_AUX_LP_END_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM,     ARC_AUX_STATUS32_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM +  1, ARC_AUX_STATUS32_L1_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM +  2, ARC_AUX_STATUS32_L2_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM +  3, ARC_AUX_AUX_IRQ_LV12_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM +  4, ARC_AUX_AUX_IRQ_LEV_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM +  5, ARC_AUX_AUX_IRQ_HINT_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM +  6, ARC_AUX_ERET_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM +  7, ARC_AUX_ERBTA_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM +  8, ARC_AUX_ERSTATUS_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM +  9, ARC_AUX_ECR_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM + 10, ARC_AUX_EFA_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM + 11, ARC_AUX_ICAUSE1_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM + 12, ARC_AUX_ICAUSE2_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM + 13, ARC_AUX_AUX_IENABLE_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM + 14, ARC_AUX_AUX_ITRIGGER_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM + 15, ARC_AUX_BTA_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM + 16, ARC_AUX_BTA_L1_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM + 17, ARC_AUX_BTA_L2_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM + 18, ARC_AUX_AUX_IRQ_PULSE_CANCEL_SIM_REGNUM },
+	{ ARC_AUX_STATUS32_REGNUM + 19, ARC_AUX_AUX_IRQ_PENDING_SIM_REGNUM }};
+
+      arc_sim_aux_map = default_sim_aux_map;
+      arc_sim_aux_map_size = sizeof (default_sim_aux_map) /
+	sizeof (default_sim_aux_map[0]);
+#endif
+
+      /* Default number of registers */
+      num_regs = ARC_AUX_STATUS32_REGNUM + 20;
     }
 
-  /* Allocate the ARC-private target-dependent information structure, and the
+
+  /* Find out about the architecture we have been given. We need the CPU, ISA
+     and ABI versions to compare with previous architectures. */
+
+  /* First of all, extract the elf info, if available.  Note that we only
+     support ELF for ARC. We use EM_NONE for the machine to indicate that we
+     do not have valid flags. */
+  elf_machine = EM_NONE;
+  elf_flags = 0;
+  if (info.abfd)
+    {
+      if (bfd_get_flavour (info.abfd) == bfd_target_elf_flavour)
+	{
+	  elf_flags = elf_elfheader (info.abfd)->e_flags;
+	  elf_machine = elf_elfheader (info.abfd)->e_machine;
+	}
+      else
+	warning (_("Non-ELF BFD flavor found for ARC - ignored."));
+    }
+
+  if (gdbarch_debug)
+    {
+      fprintf_unfiltered (gdb_stdlog,
+			  "arc_gdbarch_init: elf_flags = 0x%08x\n", elf_flags);
+      fprintf_unfiltered (gdb_stdlog,
+			  "arc_gdbarch_init: elf_machine = %s\n",
+			  (elf_machine == EM_NONE) ? "unknown"
+			  : (elf_machine == EM_ARC) ? "ARC"
+			  : (elf_machine == EM_ARCOMPACT) ? "ARCompact"
+			  : (elf_machine == EM_ARCV2) ? "ARC v2" : "error");
+    }
+
+  /* Find the CPU from the info field if available. Otherwise we use the ELF
+     flags.  The old ARCTangent CPU's are not supported, and we replace
+     them with ARC 600 and a warning. */
+  cpu = ARC_CPU_UNKNOWN;
+  if ((info.bfd_arch_info != NULL)
+      && (info.bfd_arch_info->arch == bfd_arch_arc))
+    switch (info.bfd_arch_info->mach)
+      {
+      case  bfd_mach_arc_a4:
+	warning (_("ARCTangent 4 ELF obsolete, ARC600 assumed."));
+	cpu = ARC_CPU_ARC600;
+	break;
+	
+      case  bfd_mach_arc_a5:
+	warning (_("ARCTangent 5 ELF obsolete, ARC600 assumed."));
+	cpu = ARC_CPU_ARC600;
+	break;
+	
+      case  bfd_mach_arc_arc600:
+	cpu = ARC_CPU_ARC600;
+	break;
+	
+      case  bfd_mach_arc_arc601:
+	cpu = ARC_CPU_ARC601;
+	break;
+	
+      case  bfd_mach_arc_arc700:
+	cpu = ARC_CPU_ARC700;
+	break;
+	
+      case  bfd_mach_arc_arcv2:
+	cpu = ARC_CPU_ARCV2;
+	break;
+      }
+
+  if (cpu == ARC_CPU_UNKNOWN && (elf_machine != EM_NONE))
+    {
+      switch (elf_flags & EF_ARC_MACH_MSK)
+	{
+	case E_ARC_MACH_A4:
+	  warning (_("ARCTangent 4 ELF obsolete, ARC600 assumed."));
+	  cpu = ARC_CPU_ARC600;
+	  break;
+
+	case E_ARC_MACH_A5:
+	  warning (_("ARCTangent 5 ELF obsolete, ARC600 assumed."));
+	  cpu = ARC_CPU_ARC600;
+	  break;
+
+	case E_ARC_MACH_ARC600:
+	  cpu = ARC_CPU_ARC600;
+	  break;
+
+	case E_ARC_MACH_ARC601:
+	  cpu = ARC_CPU_ARC601;
+	  break;
+
+	case E_ARC_MACH_ARC700:
+	  cpu = ARC_CPU_ARC700;
+	  break;
+
+	case E_ARC_MACH_ARCV2:
+	  cpu = ARC_CPU_ARCV2;
+	  break;
+	}
+    }
+
+  if ((cpu == ARC_CPU_UNKNOWN) && arches)
+    cpu = gdbarch_tdep (arches->gdbarch)->cpu;
+
+  if (gdbarch_debug)
+      fprintf_unfiltered (gdb_stdlog,
+			  "arc_gdbarch_init: CPU = %s\n",
+			  (cpu == ARC_CPU_UNKNOWN) ? "unknown"
+			  : (cpu == ARC_CPU_ARC600) ? "ARC 600"
+			  : (cpu == ARC_CPU_ARC601) ? "ARC 601"
+			  : (cpu == ARC_CPU_ARC700) ? "ARC 700"
+			  : (cpu == ARC_CPU_ARCV2) ? "ARC v2" : "error");
+
+  /* Sort out the ISA, hopefully from the ELF header, otherwise from the CPU
+     (is this really safe?) */
+  isa = ARC_ISA_UNKNOWN;
+  if (elf_machine != EM_NONE)
+    switch (elf_machine)
+      {
+      case EM_ARC:
+      case EM_ARCOMPACT:
+	isa = ARC_ISA_V1;
+	break;
+
+      case EM_ARCV2:
+	isa = ARC_ISA_V2;
+	break;
+      }
+
+  if (isa == ARC_ISA_UNKNOWN)
+    switch (cpu)
+      {
+      case ARC_CPU_ARC600:
+      case ARC_CPU_ARC601:
+      case ARC_CPU_ARC700:
+	isa = ARC_ISA_V1;
+	break;
+
+      case ARC_CPU_ARCV2:
+	isa = ARC_ISA_V2;
+	break;
+      }
+
+  if ((isa == ARC_ISA_UNKNOWN) && arches)
+    isa = gdbarch_tdep (arches->gdbarch)->isa;
+
+  if (gdbarch_debug)
+      fprintf_unfiltered (gdb_stdlog,
+			  "arc_gdbarch_init: ISA = %s\n",
+			  (isa == ARC_ISA_UNKNOWN) ? "unknown"
+			  : (isa == ARC_ISA_V1) ? "original"
+			  : (isa == ARC_ISA_V2) ? "version 2" : "error");
+
+  /* Sort out the ABI, hopefully from the ELF flags. */
+  abi = ARC_ABI_UNKNOWN;
+  if (elf_machine != EM_NONE)
+    switch ((elf_flags & EF_ARC_OSABI_MSK))
+      {
+      case E_ARC_OSABI_ORIG:
+	abi = ARC_ABI_ORIG;
+	break;
+	
+      case E_ARC_OSABI_V2:
+	abi = ARC_ABI_V2;
+	break;
+	
+      case E_ARC_OSABI_V3:
+	abi = ARC_ABI_V3;
+	break;
+      }
+
+  if ((abi == ARC_ABI_UNKNOWN) && arches)
+    abi = gdbarch_tdep (arches->gdbarch)->abi;
+
+  if (gdbarch_debug)
+      fprintf_unfiltered (gdb_stdlog,
+			  "arc_gdbarch_init: ABI = %s\n",
+			  (abi == ARC_ABI_UNKNOWN) ? "unknown"
+			  : (abi == ARC_ABI_ORIG) ? "original"
+			  : (abi == ARC_ABI_V2) ? "version 2"
+			  : (abi == ARC_ABI_V3) ? "version 3" : "error");
+
+  /* Check for any inconsistencies. ISA's if both declared should be the same
+     form XML and the object file. If only one is declared, then the other
+     should be made to match. */
+  if (isa != arc_reginfo.isa)
+    {
+      if (isa == ARC_ISA_UNKNOWN)
+	isa = arc_reginfo.isa;
+      else if (arc_reginfo.isa == ARC_ISA_UNKNOWN)
+	arc_reginfo.isa = isa;
+      else if (arc_reginfo.isa != isa)
+	{
+	  /* Mismatch, so we can't be used. */
+	  fprintf_unfiltered (gdb_stdlog,
+			      "Mismatched ISA: elf = %d, reginfo = %d\n",
+			      isa, arc_reginfo.isa);
+	  if (tdesc_data != NULL)
+	    tdesc_data_cleanup (tdesc_data);
+	  
+	  return NULL;
+	}
+    }
+
+#ifdef WITH_SIM
+  /* Provide the built-in simulator with a function that it can use to map
+     from gdb register numbers to h/w register numbers */
+  arc_set_register_mapping (&arc_sim_map);
+#endif
+
+  /* Try to find a pre-existing architecture.  */
+  for (arches = gdbarch_list_lookup_by_info (arches, &info);
+       arches != NULL;
+       arches = gdbarch_list_lookup_by_info (arches->next, &info))
+    {
+      /* Check the CPU, ISA and ABI match */
+      if (gdbarch_tdep (arches->gdbarch)->cpu != cpu)
+	continue;
+      else if (gdbarch_tdep (arches->gdbarch)->isa != isa)
+	continue;
+      else if (gdbarch_tdep (arches->gdbarch)->abi != abi)
+	continue;
+
+      /* Check the register info matches. */
+      if (!arc_compare_reginfo (gdbarch_tdep (arches->gdbarch)->reginfo,
+				&arc_reginfo))
+	continue;
+
+      /* We have a match. Note. No need to check simulator map, since if all
+	 the above match, so will the simulator map. */
+      if (tdesc_data != NULL)
+	tdesc_data_cleanup (tdesc_data);
+
+      return arches->gdbarch;
+    }
+
+  /* We have a valid ARC architecture, but no pre-existing architecture
+     matches. So allocate a new one.
+
+     Allocate the ARC-private target-dependent information structure, and the
      GDB target-independent information structure. */
   tdep = xmalloc (sizeof (struct gdbarch_tdep));
   gdbarch = gdbarch_alloc (&info, tdep);
 
   memset (tdep, 0, sizeof (*tdep));
+
+  /* Default tdep values, which are suitable for UNKNOWN OSABI (i.e. bare
+     metal ELF). Registers OSABI handlers may override these. */
+  tdep->is_sigtramp = NULL;
+  tdep->sigcontext_addr = NULL;
+  tdep->sc_reg_offset = NULL;
+  tdep->sc_num_regs = 0;
+
 
   /* gdbarch setup. */
   /* Default gdbarch_bits_big_endian suffices. */
@@ -3609,7 +4098,9 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   /* No special treatment of return values stored in hidden first params. */
   set_gdbarch_skip_prologue (gdbarch, arc_skip_prologue);
   /* Nothing special for skipping main prologue */
+
   set_gdbarch_inner_than (gdbarch, core_addr_lessthan);
+  set_gdbarch_breakpoint_from_pc (gdbarch, arc_breakpoint_from_pc);
   /* gdbarch_breakpoint_from_pc is target specific. */
   /* No need for gdbarch_remote_breakpoint_from_pc, since all breakpoints are
      client side memory breakpoints. */
@@ -3678,34 +4169,53 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   
   /* Put OS specific stuff into gdbarch. This can override any of the generic
      ones specified above. */
-  arc_gdbarch_osabi_init (gdbarch);
+  info.tdep_info = (void *) tdesc_data;
+  gdbarch_init_osabi (info, gdbarch);
 
-  if (tdesc_data)
+#ifdef WITH_SIM
+  /* Put the simulator auxiliary map into the target dependencies. */
+  if ((isa != ARC_ISA_V2) && arc_sim_aux_map)
     {
-      struct arc_regnum *regnum;
       struct arc_sim_aux_map_entry *sim_aux_map;
       int  i;
 
-      info.tdep_info = (void *) tdesc_data;
-      tdesc_use_registers (gdbarch, info.target_desc, tdesc_data);
-      regnum = GDBARCH_OBSTACK_ZALLOC (gdbarch, struct arc_regnum);
-      *regnum = arc_regnum;
-      sim_aux_map = GDBARCH_OBSTACK_CALLOC (gdbarch, regnum->sim_aux_map_size,
+      sim_aux_map = GDBARCH_OBSTACK_CALLOC (gdbarch, arc_sim_aux_map_size,
 					    struct arc_sim_aux_map_entry);
-      for (i = 0 ; i < regnum->sim_aux_map_size; i++)
+      for (i = 0 ; i < arc_sim_aux_map_size; i++)
 	{
 	  sim_aux_map[i] = arc_sim_aux_map[i];
 	}
-      regnum->sim_aux_map = sim_aux_map;
-      tdep->regnum = regnum;
+      tdep->sim_aux_map = sim_aux_map;
+      tdep->sim_aux_map_size = arc_sim_aux_map_size;
     }
   else
     {
-      /* For now we need to set default name and type qfunctions to
-	 stop the gdbarch validator complaining. */
+      tdep->sim_aux_map = NULL;
+      tdep->sim_aux_map_size = 0;
+    }
+#endif
+
+  if (tdesc_data)
+    {
+      info.tdep_info = (void *) tdesc_data;
+      tdesc_use_registers (gdbarch, info.target_desc, tdesc_data);
+    }
+  else
+    {
+      /* In the absence of target description, we need to set appropriate
+	 defaults, based on the CPU, ISA and ABI we have. */
+      arc_reginfo.isa = (isa == ARC_ISA_V2) ? ARC_ISA_V2 : ARC_ISA_V1;
+
+      /* We need to set default name and type functions to stop the gdbarch
+	 validator complaining. */
       set_gdbarch_register_name (gdbarch, arc_register_name);
       set_gdbarch_register_type (gdbarch, arc_register_type);
     }
+
+  /* Save the register info in the target dependency structure. */
+  reginfo = GDBARCH_OBSTACK_ZALLOC (gdbarch, struct arc_reginfo);
+  *reginfo = arc_reginfo;
+  tdep->reginfo = reginfo;
 
   return gdbarch;			/* Newly created architecture. */
 
@@ -3720,43 +4230,51 @@ static void
 arc_dump_tdep (struct gdbarch *gdbarch, struct ui_file *file)
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
-  struct arc_regnum *regnum = tdep->regnum;
-  struct arc_sim_aux_map_entry *sim_aux_map = regnum->sim_aux_map;
-  const char *isa = (regnum->isa_version == ARC_ISA_V1) ? "V1"
-    : (regnum->isa_version == ARC_ISA_V2) ? "V2"
-    : (regnum->isa_version == ARC_ISA_UNKNOWN) ? "unknown" : "error";
+  struct arc_reginfo *reginfo = tdep->reginfo;
+#ifdef WITH_SIM
+  struct arc_sim_aux_map_entry *sim_aux_map = tdep->sim_aux_map;
+#endif
+  const char *isa = (reginfo->isa == ARC_ISA_V1) ? "V1"
+    : (reginfo->isa == ARC_ISA_V2) ? "V2"
+    : (reginfo->isa == ARC_ISA_UNKNOWN) ? "unknown" : "error";
   int  i;
 
   fprintf_unfiltered (file, "arc_dump_tdep: ISA = %s\n", isa);
 
   fprintf_unfiltered (file, "arc_dump_tdep: Register information:\n");
-  if (regnum->is_reduced_core_p)
+  if (reginfo->is_reduced_core_p)
     fprintf_unfiltered (file, "arc_dump_tdep:   reduced core register set\n");
-  if (regnum->is_extended_core_p)
+  if (reginfo->is_extended_core_p)
     fprintf_unfiltered (file, "arc_dump_tdep:   extended core register set\n");
   fprintf_unfiltered (file, "arc_dump_tdep:   first argument reg = %d\n",
-		      regnum->first_arg_regnum);
+		      reginfo->first_arg_regnum);
   fprintf_unfiltered (file, "arc_dump_tdep:   last argument reg = %d\n",
-		      regnum->last_arg_regnum);
+		      reginfo->last_arg_regnum);
   fprintf_unfiltered (file, "arc_dump_tdep:   first temporary reg = %d\n",
-		      regnum->first_temp_regnum);
+		      reginfo->first_temp_regnum);
   fprintf_unfiltered (file, "arc_dump_tdep:   last temporary reg = %d\n",
-		      regnum->last_temp_regnum);
+		      reginfo->last_temp_regnum);
   fprintf_unfiltered (file, "arc_dump_tdep:   first saved reg = %d\n",
-		      regnum->first_saved_regnum);
+		      reginfo->first_saved_regnum);
   fprintf_unfiltered (file, "arc_dump_tdep:   last saved reg = %d\n",
-		      regnum->last_saved_regnum);
+		      reginfo->last_saved_regnum);
+  fprintf_unfiltered (file, "arc_dump_tdep:   LP_START auxiliary reg = %d\n",
+		      reginfo->lp_start_regnum);
+  fprintf_unfiltered (file, "arc_dump_tdep:   LP_END auxiliary reg = %d\n",
+		      reginfo->lp_end_regnum);
 
+#ifdef WITH_SIM
   fprintf_unfiltered (file,
 		      "arc_dump_tdep: Simulator auxiliary register map:\n");
   fprintf_unfiltered (file, "arc_dump_tdep:   register map size = %d\n",
-		      regnum->sim_aux_map_size);
-  for (i = 0; i < regnum->sim_aux_map_size; i++)
+		      tdep->sim_aux_map_size);
+  for (i = 0; i < tdep->sim_aux_map_size; i++)
     {
       fprintf_unfiltered (file, "arc_dump_tdep:   GDB reg %d -> sim reg %d\n",
 			  sim_aux_map[i].gdb_regnum,
 			  sim_aux_map[i].sim_regnum);
     }
+#endif
 
   fprintf_unfiltered (file, "arc_dump_tdep: is_sigtramp = %p\n",
 		      tdep->is_sigtramp);
@@ -3779,14 +4297,15 @@ arc_dump_tdep (struct gdbarch *gdbarch, struct ui_file *file)
 
     @param[in] gdbarch  The architecture of interest
     @return  The register numbering information struct. */
-const struct arc_regnum *
-arc_regnum (struct gdbarch *gdbarch)
+const struct arc_reginfo *
+arc_reginfo (struct gdbarch *gdbarch)
 {
-  return gdbarch_tdep (gdbarch)->regnum;
+  return gdbarch_tdep (gdbarch)->reginfo;
 
-}	/* arc_regnum () */
+}	/* arc_reginfo () */
 
 
+#ifdef WITH_SIM
 /* Look up a GDB to simulator auxiliary register mapping.
 
     @param[in] gdbarch  The architecture of interest
@@ -3795,17 +4314,17 @@ arc_regnum (struct gdbarch *gdbarch)
 int
 arc_sim_aux_reg_map_lookup (int  gdb_regnum)
 {
-  const struct arc_regnum *regnum = gdbarch_tdep (target_gdbarch)->regnum;
+  const struct gdbarch_tdep *tdep = gdbarch_tdep (target_gdbarch);
   int  i;
 
-  for (i = 0;  i < regnum->sim_aux_map_size; i++)
-    if (regnum->sim_aux_map[i].gdb_regnum == gdb_regnum)
-      return regnum->sim_aux_map[i].sim_regnum;
+  for (i = 0;  i < tdep->sim_aux_map_size; i++)
+    if (tdep->sim_aux_map[i].gdb_regnum == gdb_regnum)
+      return tdep->sim_aux_map[i].sim_regnum;
 
   return  -1;
 
 }	/* arc_sim_aux_reg_map_lookup () */
-
+#endif
 
 /*
     @param[in] gdbarch  Current GDB architecture
