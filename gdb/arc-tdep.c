@@ -2502,6 +2502,1338 @@ arc_sigtramp_frame_base_sniffer (struct frame_info *this_frame)
 }	/* arc_sigtramp_frame_base_sniffer () */
 
 
+/*! Convenience function for warnings about missing regs. */
+static void
+arc_tdesc_reg_missing (const char *regname,
+		       const char *featname)
+{
+  warning (_("Register %s not found in target description feature %s\n"),
+	   regname, featname);
+
+}	/* arc_reg_missing () */
+
+
+/*! Try to set up the the basecase core target description.
+
+    @return  Non-zero (TRUE) if the feature was found, zero (FALSE)
+             otherwise. The reginfo->is_valid field is used to indicate if a
+             found description was valid. */
+static bool
+arc_tdesc_core_basecase_init (const struct target_desc *target_desc,
+			      struct tdesc_arch_data *tdesc_data,
+			      struct arc_reginfo *reginfo)
+{
+  const char *featname = "org.gnu.gdb.arc.core-basecase";
+  const struct tdesc_feature *feature;
+  int num_regs;
+
+  if ((feature = tdesc_find_feature (target_desc, featname)))
+    {
+      static const char *const arg_regs[] = {
+	"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", NULL
+      };
+      static const char *const temp_regs [] = {
+	"r8", "r9", "r10", "r11", NULL
+      };
+      static const char *const saved_regs [] = {
+	"r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19",
+	"r20", "r21", "r22", "r23", "r24", "r25", NULL
+      };
+      int  i;
+
+      /* Reginfo for for a basecase core register set */
+      reginfo->is_reduced_core_p = FALSE;
+      reginfo->first_arg_regnum = ARC_FIRST_ARG_REGNUM;
+      reginfo->first_temp_regnum = ARC_FIRST_TEMP_REGNUM;
+      reginfo->first_saved_regnum = ARC_FIRST_SAVED_REGNUM;
+
+      /* Argument registers */
+      num_regs = reginfo->first_arg_regnum;
+      for (i = 0; arg_regs[i]; i++)
+	{
+	  gdb_assert (num_regs <= reginfo->last_arg_regnum);
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arg_regs[i]))
+	    {
+	      arc_tdesc_reg_missing (arg_regs[i], featname);
+	      tdesc_data_cleanup (tdesc_data);
+	      reginfo->is_valid = FALSE;
+	      return TRUE;
+	    }
+	}
+      reginfo->last_arg_regnum = num_regs;
+
+      /* Temporary registers */
+      num_regs = reginfo->first_temp_regnum;
+      for (i = 0; temp_regs[i]; i++)
+	{
+	  gdb_assert (num_regs <= reginfo->last_temp_regnum);
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					temp_regs[i]))
+	    {
+	      arc_tdesc_reg_missing (temp_regs[i], featname);
+	      tdesc_data_cleanup (tdesc_data);
+	      reginfo->is_valid = FALSE;
+	      return TRUE;
+	    }
+	}
+      reginfo->last_temp_regnum = num_regs;
+
+      /* Saved registers */
+      num_regs = reginfo->first_saved_regnum;
+      for (i = 0; saved_regs[i]; i++)
+	{
+	  gdb_assert (num_regs <= reginfo->last_saved_regnum);
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					saved_regs[i]))
+	    {
+	      arc_tdesc_reg_missing (saved_regs[i], featname);
+	      tdesc_data_cleanup (tdesc_data);
+	      reginfo->is_valid = FALSE;
+	      return TRUE;
+	    }
+	}
+      reginfo->last_saved_regnum = num_regs;
+
+      /* Valid feature found. */
+      reginfo->num_regs = num_regs;
+      reginfo->is_valid = TRUE;
+      return  TRUE;
+    }
+  else
+    return FALSE;		/* Feature not found. */
+
+}	/* arc_tdesc_core_basecase_init () */
+
+
+/*! Try to set up the the reduced core target description.
+
+    @return  Non-zero (TRUE) if the feature was found, zero (FALSE)
+             otherwise. The reginfo->is_valid field is used to indicate if a
+             found description was valid. */
+static bool
+arc_tdesc_core_reduced_init (const struct target_desc *target_desc,
+			      struct tdesc_arch_data *tdesc_data,
+			      struct arc_reginfo *reginfo)
+{
+  const char *featname = "org.gnu.gdb.arc.core-reduced";
+  const struct tdesc_feature *feature;
+  int num_regs;
+
+  if ((feature = tdesc_find_feature (target_desc, featname)))
+    {
+      static const char *const arg_regs[] = {
+	"r0", "r1", "r2", "r3", NULL
+      };
+      static const char *const temp_regs [] = {
+	"r10", "r11", NULL
+      };
+      static const char *const saved_regs [] = {
+	"r12", "r13", "r14", "r15", NULL
+      };
+      int  i;
+
+      /* Reginfo for for a reduced core register set */
+      arc_reginfo.is_reduced_core_p = TRUE;
+      arc_reginfo.first_arg_regnum = ARC_REDUCED_FIRST_ARG_REGNUM;
+      arc_reginfo.first_temp_regnum = ARC_REDUCED_FIRST_TEMP_REGNUM;
+      arc_reginfo.first_saved_regnum = ARC_REDUCED_FIRST_SAVED_REGNUM;
+
+      /* Argument registers */
+      num_regs = reginfo->first_arg_regnum;
+      for (i = 0; arg_regs[i]; i++)
+	{
+	  gdb_assert (num_regs <= reginfo->last_arg_regnum);
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arg_regs[i]))
+	    {
+	      arc_tdesc_reg_missing (arg_regs[i], featname);
+	      tdesc_data_cleanup (tdesc_data);
+	      reginfo->is_valid = FALSE;
+	      return TRUE;
+	    }
+	}
+      arc_reginfo.last_arg_regnum = num_regs;
+
+      /* Temporary registers */
+      num_regs = reginfo->first_temp_regnum;
+      for (i = 0; temp_regs[i]; i++)
+	{
+	  gdb_assert (num_regs <= reginfo->last_temp_regnum);
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					temp_regs[i]))
+	    {
+	      arc_tdesc_reg_missing (temp_regs[i], featname);
+	      tdesc_data_cleanup (tdesc_data);
+	      reginfo->is_valid = FALSE;
+	      return TRUE;
+	    }
+	}
+      arc_reginfo.last_temp_regnum = num_regs;
+
+      /* Saved registers */
+      num_regs = reginfo->first_saved_regnum;
+      for (i = 0; saved_regs[i]; i++)
+	{
+	  gdb_assert (num_regs <= reginfo->last_saved_regnum);
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					saved_regs[i]))
+	    {
+	      arc_tdesc_reg_missing (saved_regs[i], featname);
+	      tdesc_data_cleanup (tdesc_data);
+	      reginfo->is_valid = FALSE;
+	      return TRUE;
+	    }
+	}
+      arc_reginfo.last_saved_regnum = num_regs;
+
+      /* Valid feature found. */
+      reginfo->num_regs = num_regs;
+      reginfo->is_valid = TRUE;
+      return  TRUE;
+    }
+  else
+    return FALSE;		/* Feature not found. */
+
+}	/* arc_tdesc_core_reduced_init () */
+
+
+/*! Try to set up the the pointer register target description.
+
+    @return  Non-zero (TRUE) if the feature was found, zero (FALSE)
+             otherwise. The reginfo->is_valid field is used to indicate if a
+             found description was valid. */
+static bool
+arc_tdesc_core_pointers_init (const struct target_desc *target_desc,
+			      struct tdesc_arch_data *tdesc_data,
+			      struct arc_reginfo *reginfo)
+{
+  const char *featname = "org.gnu.gdb.arc.core-pointers";
+  const struct tdesc_feature *feature;
+  int num_regs;
+
+  if ((feature = tdesc_find_feature (target_desc, featname)))
+    {
+      static const char *const arc_gp_names[] = {
+	"r26", "gp", NULL };
+      static const char *const arc_fp_names[] = {
+	"r27", "fp", NULL };
+      static const char *const arc_sp_names[] = {
+	"r28", "sp", NULL };
+      int  i;
+
+      /* Pointer registers */
+      if (!tdesc_numbered_register_choices (feature, tdesc_data,
+					    ARC_GP_REGNUM, arc_gp_names))
+	{
+	  warning (_("Global pointer register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+	      
+      if (!tdesc_numbered_register_choices (feature, tdesc_data,
+					    ARC_FP_REGNUM, arc_fp_names))
+	{
+	  warning (_("Frame pointer register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      if (!tdesc_numbered_register_choices (feature, tdesc_data,
+					    ARC_SP_REGNUM, arc_sp_names))
+	{
+	  warning (_("Stack pointer register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      /* Valid feature found. */
+      reginfo->num_regs = num_regs;
+      reginfo->is_valid = TRUE;
+      return  TRUE;
+    }
+  else
+    return FALSE;		/* Feature not found. */
+
+}	/* arc_tdesc_core_reduced_init () */
+
+
+/*! Set up the the target description.
+
+    If we have XML target dependencies, this function is called to set them
+    up and populate the reginfo structure appropriately.
+
+    @param [in,out] reginfo  Register info structure
+    @param [in]     target_desc  Target description data from the gdbarch
+                    info.
+    @result  A new tdesc_arch_data structure, or NULL if no valid target
+             dependencis are found. */
+static struct tdesc_arch_data *
+arc_tdesc_init (struct arc_reginfo *reginfo,
+		const struct target_desc *target_desc)
+{
+  struct tdesc_arch_data *tdesc_data = tdesc_data_alloc ();
+  const char *featname1;
+  const char *featname2;
+
+  /* We must have either the core or reduced core basecase registers */
+  if (arc_tdesc_core_basecase_init (target_desc, tdesc_data, reginfo))
+    {
+      if (!reginfo->is_valid)
+	return NULL;		/* Found but not valid. */
+    }
+  else if (arc_tdesc_core_reduced_init (target_desc, tdesc_data, reginfo))
+    {
+      if (!reginfo->is_valid)
+	return NULL;		/* Found but not valid. */
+    }
+  else
+    {
+      /* Neither core nor reduced core. Silently reject here, because we
+	 have no evidence we were an ARC architecture at all. But after
+	 this we can put an ARC specific warning. */
+      tdesc_data_cleanup (tdesc_data);
+      return NULL;
+    }
+
+  /* We must have the pointer registers */
+  featname1 = "org.gnu.gdb.arc.core-pointers";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      static const char *const arc_gp_names[] = {
+	"r26", "gp", NULL };
+      static const char *const arc_fp_names[] = {
+	"r27", "fp", NULL };
+      static const char *const arc_sp_names[] = {
+	"r28", "sp", NULL };
+      int  i;
+
+      /* Pointer registers */
+      if (!tdesc_numbered_register_choices (feature, tdesc_data,
+					    ARC_GP_REGNUM, arc_gp_names))
+	{
+	  warning (_("Global pointer register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+	      
+      if (!tdesc_numbered_register_choices (feature, tdesc_data,
+					    ARC_FP_REGNUM, arc_fp_names))
+	{
+	  warning (_("Frame pointer register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      if (!tdesc_numbered_register_choices (feature, tdesc_data,
+					    ARC_SP_REGNUM, arc_sp_names))
+	{
+	  warning (_("Stack pointer register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+    }
+  else
+    {
+      warning (_("ARC pointer register feature must be present\n"));
+      return NULL;
+    }
+
+
+  /* We must have the link registers in either v1 or v2 ISA. This is the
+     point at which we can decide the ISA, and thereafter, the ISA must
+     be consistent. */
+  featname1 = "org.gnu.gdb.arc.core-linkregs.v1";
+  featname2 = "org.gnu.gdb.arc.core-linkregs.v2";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      static const char *const arc_ilink1_names[] = {
+	"r29", "ilink1", NULL };
+      static const char *const arc_ilink2_names[] = {
+	"r30", "ilink2", NULL };
+      static const char *const arc_blink_names[] = {
+	"r31", "blink", NULL };
+      const char *featname1 = "org.gnu.gdb.arc.core-linkregs.v1";
+      int  i;
+
+      arc_reginfo.isa = ARC_ISA_V1;
+
+      /* Link registers for V1 ISA */
+      if (!tdesc_numbered_register_choices (feature, tdesc_data,
+					    ARC_ILINK1_REGNUM,
+					    arc_ilink1_names))
+	{
+	  warning (_("ILINK1 register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!tdesc_numbered_register_choices (feature, tdesc_data,
+					    ARC_ILINK2_REGNUM,
+					    arc_ilink2_names))
+	{
+	  warning (_("ILINK2 register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!tdesc_numbered_register_choices (feature, tdesc_data,
+					    ARC_BLINK_REGNUM,
+					    arc_blink_names))
+	{
+	  warning (_("BLINK register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+    }
+  else if ((feature = tdesc_find_feature (info.target_desc, featname2)))
+    {
+      static const char *const arc_ilink_p0_names[] = {
+	"r29", "ilink_p0", NULL };
+      static const char *const arc_blink_names[] = {
+	"r31", "blink", NULL };
+      int  i;
+
+      arc_reginfo.isa = ARC_ISA_V2;
+#ifdef WITH_SIM
+      arc_sim_aux_map = NULL;	/* No simulator for V2 ISA */
+#endif
+
+      /* Link registers for V2 ISA */
+      if (!tdesc_numbered_register_choices (feature, tdesc_data,
+					    ARC_ILINK_P0_REGNUM,
+					    arc_ilink_p0_names))
+	{
+	  warning (_("ILINK_P0 register not found in target "
+		     "description feature %s"), featname2);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!tdesc_numbered_register (feature, tdesc_data, 30, "r30"))
+	{
+	  warning (_("Register r30 not found in target "
+		     "description feature %s"), featname2);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!tdesc_numbered_register_choices (feature, tdesc_data,
+					    ARC_BLINK_REGNUM,
+					    arc_blink_names))
+	{
+	  warning (_("BLINK register not found in target "
+		     "description feature %s"), featname2);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+    }
+  else
+    {
+      warning (_("ARC link register feature must be present\n"));
+      return NULL;
+    }
+
+
+  /* Optionally have the extension core registers. Bizarrely this does
+     seem permissible, even with the reduced configuration */
+  featname1 = "org.gnu.gdb.arc.core-extension";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      /* Extension core register set */
+      static const char *const arc_ext_regs[] = {
+	"r32", "r33", "r34", "r35", "r36", "r37", "r38", "r39",
+	"r40", "r41", "r42", "r43", "r44", "r45", "r46", "r47",
+	"r48", "r49", "r50", "r51", "r52", "r53", "r54", "r55",
+	"r56", "r57", "r58", "r59", NULL
+      };
+      int  i;
+
+      arc_reginfo.is_extended_core_p = TRUE;
+
+      /* Extended registers */
+      num_regs = ARC_FIRST_EXTENSION_REGNUM;
+      for (i = 0; arc_ext_regs[i];  i++)
+	{
+	  gdb_assert (num_regs <= ARC_LAST_EXTENSION_REGNUM);
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arc_ext_regs[i]))
+	    {
+	      warning (_("Extensions register %s not found in target "
+			 "description feature %s\n"), arc_ext_regs[i],
+		       featname1);
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+    }
+
+  /* We must have the "other" registers */
+  featname1="org.gnu.gdb.arc.core-other";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      int  i;
+
+      /* "Other" registers */
+      if (!tdesc_numbered_register (feature, tdesc_data,
+				    ARC_LP_COUNT_REGNUM, "lp_count"))
+	{
+	  warning (_("LP_COUNT register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      if (!tdesc_numbered_register (feature, tdesc_data, ARC_LIMM_REGNUM,
+				    "limm"))
+	{
+	  warning (_("LIMM register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!tdesc_numbered_register (feature, tdesc_data, ARC_PCL_REGNUM,
+				    "pcl"))
+	{
+	  warning (_("PCL register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+    }
+  else
+    {
+      warning (_("ARC \"other\" register feature must be present\n"));
+      return NULL;
+    }
+
+
+  /* The number of registers so far is fixed. */
+  num_regs = ARC_MAX_CORE_REGS;
+
+  /* Must have the baseline auxiliary registers for the ISA */
+  featname1 = "org.gnu.gdb.arc.aux-baseline.v1";
+  featname2 = "org.gnu.gdb.arc.aux-baseline.v2";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+
+      if (arc_reginfo.isa != ARC_ISA_V1)
+	{
+	  warning (_("ARC baseline auxiliary regs V1 do not match ISA "
+		     "version of core"));
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	} 
+
+      /* Numbered registers */
+      if (!tdesc_numbered_register (feature, tdesc_data,
+				    ARC_AUX_IDENTITY_REGNUM,
+				    "identity"))
+	{
+	  warning (_("IDENTITY auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      if (!tdesc_numbered_register (feature, tdesc_data, ARC_PC_REGNUM,
+				    "pc"))
+	{
+	  warning (_("PC auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data,
+				       ARC_AUX_STATUS32_REGNUM,
+				       ARC_AUX_STATUS32_SIM_REGNUM,
+				       "status32"))
+	{
+	  warning (_("STATUS32 auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      /* End of numbered regs */
+      num_regs = ARC_MAX_NUMBERED_REGS;
+
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_BTA_SIM_REGNUM, "bta"))
+	{
+	  warning (_("BTA auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_ECR_SIM_REGNUM, "ecr"))
+	{
+	  warning (_("ECR auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_ICAUSE1_SIM_REGNUM,
+				       "icause1"))
+	{
+	  warning (_("ICAUSE1 auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_ICAUSE2_SIM_REGNUM,
+				       "icause2"))
+	{
+	  warning (_("ICAUSE2 auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+				    "int_vector_base"))
+	{
+	  warning (_("INT_VECTOR_BASE auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_AUX_IRQ_LV12_SIM_REGNUM,
+				       "aux_irq_lv12"))
+	{
+	  warning (_("AUX_IRQ_LV12 auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_STATUS32_L1_SIM_REGNUM,
+				       "status32_l1"))
+	{
+	  warning (_("STATUS32_L1 auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_STATUS32_L2_SIM_REGNUM,
+				       "status32_l2"))
+	{
+	  warning (_("STATUS32_L2 auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_ERET_SIM_REGNUM, "eret"))
+	{
+	  warning (_("ERET auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_ERBTA_SIM_REGNUM, "erbta"))
+	{
+	  warning (_("ERBTA auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_ERSTATUS_SIM_REGNUM,
+				       "erstatus"))
+	{
+	  warning (_("ERSTATUS auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+				    "bcr_ver"))
+	{
+	  warning (_("BCR_VER auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+				    "bta_link_build"))
+	{
+	  warning (_("BTA_LINK_BUILD auxiliary register not found in "
+		     "target description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+				    "vecbase_ac_build"))
+	{
+	  warning (_("VECBASE_AC_BUILD auxiliary register not found in "
+		     "target description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+				    "rf_build"))
+	{
+	  warning (_("RF_BUILD auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+				    "isa_config"))
+	{
+	  warning (_("ISA_CONFIG auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_AUX_IRQ_LEV_SIM_REGNUM,
+				       "aux_irq_lev"))
+	{
+	  warning (_("AUX_IRQ_LEV auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_AUX_IRQ_HINT_SIM_REGNUM,
+				       "aux_irq_hint"))
+	{
+	  warning (_("AUX_IRQ_HINT auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_AUX_IENABLE_SIM_REGNUM,
+				       "aux_ienable"))
+	{
+	  warning (_("AUX_IENABLE auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_AUX_ITRIGGER_SIM_REGNUM,
+				       "aux_itrigger"))
+	{
+	  warning (_("AUX_ITRIGGER auxiliary register not found in target "
+		     "description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_AUX_IRQ_PULSE_CANCEL_SIM_REGNUM,
+				       "aux_irq_pulse_cancel"))
+	{
+	  warning (_("AUX_IRQ_PULSE_CANCEL auxiliary register not found in "
+		     "target description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_AUX_IRQ_PENDING_SIM_REGNUM,
+				       "aux_irq_pending"))
+	{
+	  warning (_("AUX_IRQ_PENDING auxiliary register not found in "
+		     "target description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+    }
+  else if ((feature = tdesc_find_feature (info.target_desc, featname2)))
+    {
+      /* Unnumbered baseline auxiliary registers for V2 ISA */
+      static const char *const arc_aux_baseline_regs[] = {
+	"bta", "ecr", "int_vector_base", "status32_p0",
+	"aux_user_sp", "eret", "erbta", "erstatus",
+	"bcr_ver", "bta_link_build", "vecbase_ac_build", "rf_build",
+	"dccm_build", NULL
+      };
+      int  i;
+
+      if (arc_reginfo.isa != ARC_ISA_V2)
+	{
+	  warning (_("ARC baseline auxiliary regs V2 do not match ISA "
+		     "version of core"));
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	} 
+
+      /* Note. Simulator is not supported for V2 ISA, so no need for
+	 mapping. */
+
+      /* Numbered registers */
+      if (!tdesc_numbered_register (feature, tdesc_data,
+				    ARC_AUX_IDENTITY_REGNUM,
+				    "identity"))
+	{
+	  warning (_("IDENTITY auxiliary register not found in target "
+		     "description feature %s"), featname2);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      if (!tdesc_numbered_register (feature, tdesc_data, ARC_PC_REGNUM,
+				    "pc"))
+	{
+	  warning (_("PC auxiliary register not found in target "
+		     "description feature %s"), featname2);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!tdesc_numbered_register (feature, tdesc_data,
+				    ARC_AUX_STATUS32_REGNUM, "status32"))
+	{
+	  warning (_("STATUS32 auxiliary register not found in target "
+		     "description feature %s"), featname2);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      /* End of numbered regs */
+      num_regs = ARC_MAX_NUMBERED_REGS;
+
+      /* Unnumbered registers */
+      for (i = 0; arc_aux_baseline_regs[i];  i++)
+	{
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arc_aux_baseline_regs[i]))
+	    {
+	      warning (_("Baseline auxiliary register %s not found in "
+			 "target description feature %s"),
+		       arc_aux_baseline_regs[i], featname2);
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+    }
+  else
+    {
+      warning (_("ARC baseline auxiliary register feature must be "
+		 "present"));
+      return NULL;
+    }
+
+  /* Optional instruction set auxiliary registers */
+  featname1 = "org.gnu.gdb.arc.aux-iset";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      /* Non-simulator regs */
+      static const char *const arc_aux_iset_regs[] = {
+	"jli_base", "ldi_base", "ei_base", NULL
+      };
+      int  i;
+
+      arc_reginfo.lp_start_regnum = num_regs;
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_LP_START_SIM_REGNUM,
+				       "lp_start"))
+	{
+	  warning (_("LP_START auxiliary register not found in "
+		     "target description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      arc_reginfo.lp_end_regnum = num_regs;
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_LP_END_SIM_REGNUM,
+				       "lp_end"))
+	{
+	  warning (_("LP_END auxiliary register not found in "
+		     "target description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      for (i = 0; arc_aux_iset_regs[i];  i++)
+	{
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arc_aux_iset_regs[i]))
+	    {
+	      warning (_("Instruction set auxiliary register %s not found "
+			 "in target description feature %s"),
+		       arc_aux_iset_regs[i], featname1);
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      arc_reginfo.have_aux_iset_p = TRUE;
+    }
+
+  /* Optional external host debug auxiliary registers */
+  featname1 = "org.gnu.gdb.arc.aux-debug";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+				    "debug"))
+	{
+	  warning (_("DEBUG auxiliary register not found in "
+		     "target description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      arc_reginfo.have_aux_debug_p = TRUE;
+    }
+
+  /* Optional extended exception state auxiliary registers, V1 or V2
+     version. */
+  featname1 = "org.gnu.gdb.arc.aux-exception.v1";
+  featname2 = "org.gnu.gdb.arc.aux-exception.v2";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      if (arc_reginfo.isa != ARC_ISA_V1)
+	{
+	  warning (_("ARC extended exception state auxiliary regs V1 do "
+		     "not match ISA version of core"));
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	} 
+
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_EFA_SIM_REGNUM, "efa"))
+	{
+	  warning (_("EFA auxiliary register not found in "
+		     "target description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_BTA_L1_SIM_REGNUM, "bta_l1"))
+	{
+	  warning (_("BTA_L1 auxiliary register not found in "
+		     "target description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_BTA_L2_SIM_REGNUM, "bta_l2"))
+	{
+	  warning (_("BTA_L2 auxiliary register not found in "
+		     "target description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      arc_reginfo.have_aux_exception_p = TRUE;
+    }
+  else if ((feature = tdesc_find_feature (info.target_desc, featname2)))
+    {
+      if (arc_reginfo.isa != ARC_ISA_V2)
+	{
+	  warning (_("ARC extended exception state auxiliary regs V2 do "
+		     "not match ISA version of core"));
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	} 
+
+      if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
+				       &arc_sim_aux_map_size, feature,
+				       tdesc_data, num_regs++,
+				       ARC_AUX_EFA_SIM_REGNUM, "efa"))
+	{
+	  warning (_("EFA auxiliary register not found in "
+		     "target description feature %s"), featname2);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      arc_reginfo.have_aux_exception_p = TRUE;
+    }
+
+  /* Optional timer auxiliary registers */
+  featname1 = "org.gnu.gdb.arc.aux-timer.v1";
+  featname2 = "org.gnu.gdb.arc.aux-timer.v2";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      /* Unnumbered timer auxiliary registers for V1 ISA */
+      static const char *const arc_aux_timer_regs[] = {
+	"count0", "control0", "limit0", "count1",
+	"control1", "limit1", NULL
+      };
+      int  i;
+
+      if (arc_reginfo.isa != ARC_ISA_V1)
+	{
+	  warning (_("ARC timer auxiliary regs V1 do "
+		     "not match ISA version of core"));
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	} 
+
+      for (i = 0; arc_aux_timer_regs[i];  i++)
+	{
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arc_aux_timer_regs[i]))
+	    {
+	      warning (_("Timer auxiliary register %s not found "
+			 "in target description feature %s"),
+		       arc_aux_timer_regs[i], featname1);
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      arc_reginfo.have_aux_timer_p = TRUE;
+    }
+  else if ((feature = tdesc_find_feature (info.target_desc, featname2)))
+    {
+      /* Unnumbered timer auxiliary registers for V2 ISA */
+      static const char *const arc_aux_timer_regs[] = {
+	"count0", "control0", "limit0", "count1",
+	"control1", "limit1", "aux_rtc_ctrl", "aux_rtc_low",
+	"aux_rtc_high", NULL
+      };
+      int  i;
+
+      if (arc_reginfo.isa != ARC_ISA_V2)
+	{
+	  warning (_("ARC timer auxiliary regs V2 do "
+		     "not match ISA version of core"));
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	} 
+
+      for (i = 0; arc_aux_timer_regs[i];  i++)
+	{
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arc_aux_timer_regs[i]))
+	    {
+	      warning (_("Timer auxiliary register %s not found "
+			 "in target description feature %s"),
+		       arc_aux_timer_regs[i], featname2);
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      arc_reginfo.have_aux_timer_p = TRUE;
+    }
+
+  /* Optional user extension auxiliary registers */
+  featname1 = "org.gnu.gdb.arc.aux-user";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+				    "xpu"))
+	{
+	  warning (_("XPU auxiliary register not found in "
+		     "target description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      arc_reginfo.have_aux_user_p = TRUE;
+    }
+
+  /* Optional build configuration auxiliary registers */
+  featname1 = "org.gnu.gdb.arc.aux-bcr";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      /* Unnumbered build control registers */
+      static const char *const arc_aux_bcrs[] = {
+	"bcr_0x60", "bcr_0x61", "bcr_0x62", "bcr_0x63",
+	"bcr_0x64", "bcr_0x65", "bcr_0x66", "bcr_0x67",
+	"bcr_0x68", "bcr_0x69", "bcr_0x6a", "bcr_0x6b",
+	"bcr_0x6c", "bcr_0x6d", "bcr_0x6e", "bcr_0x6f",
+	"bcr_0x70", "bcr_0x71", "bcr_0x72", "bcr_0x73",
+	"bcr_0x74", "bcr_0x75", "bcr_0x76", "bcr_0x77",
+	"bcr_0x78", "bcr_0x79", "bcr_0x7a", "bcr_0x7b",
+	"bcr_0x7c", "bcr_0x7d", "bcr_0x7e", "bcr_0x7f",
+	"bcr_0xc0", "bcr_0xc1", "bcr_0xc2", "bcr_0xc3",
+	"bcr_0xc4", "bcr_0xc5", "bcr_0xc6", "bcr_0xc7",
+	"bcr_0xc8", "bcr_0xc9", "bcr_0xca", "bcr_0xcb",
+	"bcr_0xcc", "bcr_0xcd", "bcr_0xce", "bcr_0xcf",
+	"bcr_0xd0", "bcr_0xd1", "bcr_0xd2", "bcr_0xd3",
+	"bcr_0xd4", "bcr_0xd5", "bcr_0xd6", "bcr_0xd7",
+	"bcr_0xd8", "bcr_0xd9", "bcr_0xda", "bcr_0xdb",
+	"bcr_0xdc", "bcr_0xdd", "bcr_0xde", "bcr_0xdf",
+	"bcr_0xe0", "bcr_0xe1", "bcr_0xe2", "bcr_0xe3",
+	"bcr_0xe4", "bcr_0xe5", "bcr_0xe6", "bcr_0xe7",
+	"bcr_0xe8", "bcr_0xe9", "bcr_0xea", "bcr_0xeb",
+	"bcr_0xec", "bcr_0xed", "bcr_0xee", "bcr_0xef",
+	"bcr_0xf0", "bcr_0xf1", "bcr_0xf2", "bcr_0xf3",
+	"bcr_0xf4", "bcr_0xf5", "bcr_0xf6", "bcr_0xf7",
+	"bcr_0xf8", "bcr_0xf9", "bcr_0xfa", "bcr_0xfb",
+	"bcr_0xfc", "bcr_0xfd", "bcr_0xfe", "bcr_0xff",
+	NULL
+      };
+      int  i;
+
+      for (i = 0; arc_aux_bcrs[i];  i++)
+	{
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arc_aux_bcrs[i]))
+	    {
+	      warning (_("Build configuration auxiliary register %s not "
+			 "found in target description feature %s"),
+		       arc_aux_bcrs[i], featname1);
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      arc_reginfo.have_aux_bcr_p = TRUE;
+    }
+
+  /* Optional instruction cache auxiliary registers */
+  featname1 = "org.gnu.gdb.arc.aux-icache";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      /* Unnumbered instruction cache registers */
+      static const char *const arc_aux_icache_regs[] = {
+	"ic_ivic", "ic_ctrl", "ic_lil", "ic_ivil",
+	"ic_ram_address", "ic_tag", "ic_data", NULL
+      };
+      int  i;
+
+      for (i = 0; arc_aux_icache_regs[i];  i++)
+	{
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arc_aux_icache_regs[i]))
+	    {
+	      warning (_("Instruction cache auxiliary register %s not "
+			 "found in target description feature %s"),
+		       arc_aux_icache_regs[i], featname1);
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      arc_reginfo.have_aux_icache_p = TRUE;
+    }
+
+  /* Optional data cache auxiliary registers */
+  featname1 = "org.gnu.gdb.arc.aux-dcache";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      /* Unnumbered data cache registers */
+      static const char *const arc_aux_dcache_regs[] = {
+	"dc_ivdc", "dc_ctrl", "dc_flsh", "aux_cache_limit",
+	"dc_ldl", "dc_ivdl", "dc_fldl", "dc_ram_addr",
+	"dc_tag", "dc_data", NULL
+      };
+      int  i;
+
+      for (i = 0; arc_aux_dcache_regs[i];  i++)
+	{
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arc_aux_dcache_regs[i]))
+	    {
+	      warning (_("Data cache auxiliary register %s not "
+			 "found in target description feature %s"),
+		       arc_aux_dcache_regs[i], featname1);
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      arc_reginfo.have_aux_dcache_p = TRUE;
+    }
+
+  /* Optional DCCM auxiliary registers */
+  featname1 = "org.gnu.gdb.arc.aux-dccm";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      /* Unnumbered DCCM registers */
+      static const char *const arc_aux_dccm_regs[] = {
+	"aux_dccm", "dccm_build", NULL
+      };
+      int  i;
+
+      for (i = 0; arc_aux_dccm_regs[i];  i++)
+	{
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arc_aux_dccm_regs[i]))
+	    {
+	      warning (_("DCCM auxiliary register %s not "
+			 "found in target description feature %s"),
+		       arc_aux_dccm_regs[i], featname1);
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      arc_reginfo.have_aux_dccm_p = TRUE;
+    }
+
+  /* Optional ICCM auxiliary registers */
+  featname1 = "org.gnu.gdb.arc.aux-iccm";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      /* Unnumbered ICCM registers */
+      static const char *const arc_aux_iccm_regs[] = {
+	"aux_iccm", "iccm_build", NULL
+      };
+      int  i;
+
+      for (i = 0; arc_aux_iccm_regs[i];  i++)
+	{
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arc_aux_iccm_regs[i]))
+	    {
+	      warning (_("ICCM auxiliary register %s not "
+			 "found in target description feature %s"),
+		       arc_aux_iccm_regs[i], featname1);
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      arc_reginfo.have_aux_iccm_p = TRUE;
+    }
+
+  /* Optional peripheral memory region auxiliary registers */
+  featname1 = "org.gnu.gdb.arc.aux-pmr";
+  if ((feature = tdesc_find_feature (info.target_desc, featname1)))
+    {
+      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+				    "dmp_peripheral"))
+	{
+	  warning (_("DMP_PERIPHERAL auxiliary register not found in "
+		     "target description feature %s"), featname1);
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	}
+
+      arc_reginfo.have_aux_pmr_p = TRUE;
+    }
+
+  /* Optional memory protection unit auxiliary registers (V2 ISA only) */
+  featname2 = "org.gnu.gdb.arc.aux-mpu.v2";
+  if ((feature = tdesc_find_feature (info.target_desc, featname2)))
+    {
+      /* Unnumbered MPU registers */
+      static const char *const arc_aux_mpu_regs[] = {
+	"mpu_build", "mpu_en", "mpu_ecr", "mpu_rdb0",
+	"mpu_rdp0", "mpu_rdb1", "mpu_rdp1", "mpu_rdb2",
+	"mpu_rdp2", "mpu_rdb3", "mpu_rdp3", "mpu_rdb4",
+	"mpu_rdp4", "mpu_rdb5", "mpu_rdp5", "mpu_rdb6",
+	"mpu_rdp6", "mpu_rdb6", "mpu_rdp6", "mpu_rdb8",
+	"mpu_rdp8", "mpu_rdb9", "mpu_rdp9", "mpu_rdb10",
+	"mpu_rdp10", "mpu_rdb11", "mpu_rdp11", "mpu_rdb12",
+	"mpu_rdp12", "mpu_rdb13", "mpu_rdp13", "mpu_rdb14",
+	"mpu_rdp14", "mpu_rdb15", "mpu_rdp15", NULL
+      };
+      int  i;
+
+      if (arc_reginfo.isa != ARC_ISA_V2)
+	{
+	  warning (_("ARC MPU auxiliary regs V2 do "
+		     "not match ISA version of core"));
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	} 
+
+      for (i = 0; arc_aux_mpu_regs[i];  i++)
+	{
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arc_aux_mpu_regs[i]))
+	    {
+	      warning (_("MPU auxiliary register %s not "
+			 "found in target description feature %s"),
+		       arc_aux_mpu_regs[i], featname2);
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      arc_reginfo.have_aux_mpu_p = TRUE;
+    }
+
+  /* Optional SmaRT auxiliary registers (V2 ISA only) */
+  featname2 = "org.gnu.gdb.arc.aux-smart.v2";
+  if ((feature = tdesc_find_feature (info.target_desc, featname2)))
+    {
+      /* Unnumbered SmaRT registers */
+      static const char *const arc_aux_smart_regs[] = {
+	"smart_build", "smart_control", "smart_data", NULL
+      };
+      int  i;
+
+      if (arc_reginfo.isa != ARC_ISA_V2)
+	{
+	  warning (_("ARC SmaRT auxiliary regs V2 do "
+		     "not match ISA version of core"));
+	  tdesc_data_cleanup (tdesc_data);
+	  return NULL;
+	} 
+
+      for (i = 0; arc_aux_smart_regs[i];  i++)
+	{
+	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
+					arc_aux_smart_regs[i]))
+	    {
+	      warning (_("SmaRT auxiliary register %s not "
+			 "found in target description feature %s"),
+		       arc_aux_smart_regs[i], featname2);
+	      tdesc_data_cleanup (tdesc_data);
+	      return NULL;
+	    }
+	}
+
+      arc_reginfo.have_aux_smart_p = TRUE;
+    }
+}	/* arc_tdesc_init () */
+
+
 /*! Initialize GDB
 
     The functions set here are generic to *all* versions of GDB for ARC. The
@@ -2540,14 +3872,7 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
   /* Default register info suitable for all OS ABIs */
   arc_reginfo.isa = ARC_ISA_UNKNOWN;
-  arc_reginfo.is_reduced_core_p = FALSE;
   arc_reginfo.is_extended_core_p = FALSE;
-  arc_reginfo.first_arg_regnum = ARC_FIRST_ARG_REGNUM;
-  arc_reginfo.last_arg_regnum = ARC_LAST_ARG_REGNUM;
-  arc_reginfo.first_temp_regnum = ARC_FIRST_TEMP_REGNUM;
-  arc_reginfo.last_temp_regnum = ARC_LAST_TEMP_REGNUM;
-  arc_reginfo.first_saved_regnum = ARC_FIRST_SAVED_REGNUM;
-  arc_reginfo.last_saved_regnum = ARC_LAST_SAVED_REGNUM;
   arc_reginfo.have_aux_iset_p = FALSE;
   arc_reginfo.have_aux_debug_p = FALSE;
   arc_reginfo.have_aux_exception_p = FALSE;
@@ -2565,1191 +3890,9 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   /* Sort out the registers from the target description, if available. */
   if (tdesc_has_registers (info.target_desc))
     {
-      const struct tdesc_feature *feature;
-      const char *featname1;
-      const char *featname2;
-
-      /* We must have either the core or reduced core basecase registers */
-      featname1 = "org.gnu.gdb.arc.core-basecase";
-      featname2 = "org.gnu.gdb.arc.core-reduced";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  /* Full core register set */
-	  static const char *const arc_arg_regs[] = {
-	    "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", NULL
-	  };
-	  static const char *const arc_temp_regs [] = {
-	    "r8", "r9", "r10", "r11", NULL
-	  };
-	  static const char *const arc_saved_regs [] = {
-	    "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19",
-	    "r20", "r21", "r22", "r23", "r24", "r25", NULL
-	  };
-	  int  i;
-
-	  tdesc_data = tdesc_data_alloc ();
-
-	  /* Argument registers */
-	  num_regs = arc_reginfo.first_arg_regnum;
-	  for (i = 0; arc_arg_regs[i]; i++)
-	    {
-	      gdb_assert (num_regs <= arc_reginfo.last_arg_regnum);
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_arg_regs[i]))
-		{
-		  warning (_("Argument register %s not found in target "
-			     "description feature %s\n"), arc_arg_regs[i],
-			   featname1);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  /* Temporary registers */
-	  num_regs = arc_reginfo.first_temp_regnum;
-	  for (i = 0; arc_temp_regs[i]; i++)
-	    {
-	      gdb_assert (num_regs <= arc_reginfo.last_temp_regnum);
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_temp_regs[i]))
-		{
-		  warning (_("Temporary register %s not found in target "
-			     "description feature %s\n"), arc_temp_regs[i],
-			   featname1);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  /* Saved registers */
-	  num_regs = arc_reginfo.first_saved_regnum;
-	  for (i = 0; arc_saved_regs[i]; i++)
-	    {
-	      gdb_assert (num_regs <= arc_reginfo.last_saved_regnum);
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_saved_regs[i]))
-		{
-		  warning (_("Saved register %s not found in target "
-			     "description feature %s\n"), arc_saved_regs[i],
-			   featname1);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-	}
-      else if ((feature = tdesc_find_feature (info.target_desc, featname2)))
-	{
-	  /* Reduced core register set */
-	  static const char *const arc_arg_regs[] = {
-	    "r0", "r1", "r2", "r3", NULL
-	  };
-	  static const char *const arc_temp_regs [] = {
-	    "r10", "r11", "r12", "r13", "r14", "r15", NULL
-	  };
-	  static const char *const arc_saved_regs [] = {
-	    "r12", "r13", "r14", "r15", NULL
-	  };
-	  int  i;
-
-	  tdesc_data = tdesc_data_alloc ();
-
-	  /* Reduced register numbers */
-	  arc_reginfo.is_reduced_core_p = TRUE;
-	  arc_reginfo.first_arg_regnum = ARC_REDUCED_FIRST_ARG_REGNUM;
-	  arc_reginfo.last_arg_regnum = ARC_REDUCED_LAST_ARG_REGNUM;
-	  arc_reginfo.first_temp_regnum = ARC_REDUCED_FIRST_TEMP_REGNUM;
-	  arc_reginfo.last_temp_regnum = ARC_REDUCED_LAST_TEMP_REGNUM;
-	  arc_reginfo.first_saved_regnum = ARC_REDUCED_FIRST_SAVED_REGNUM;
-	  arc_reginfo.last_saved_regnum = ARC_REDUCED_LAST_SAVED_REGNUM;
-
-	  /* Argument registers */
-	  num_regs = arc_reginfo.first_arg_regnum;
-	  for (i = 0; arc_arg_regs[i]; i++)
-	    {
-	      gdb_assert (num_regs <= arc_reginfo.last_arg_regnum);
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_arg_regs[i]))
-		{
-		  warning (_("Argument register %s not found in target "
-			     "description feature %s\n"), arc_arg_regs[i],
-			   featname2);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  /* Temporary registers */
-	  num_regs = arc_reginfo.first_temp_regnum;
-	  for (i = 0; arc_temp_regs[i]; i++)
-	    {
-	      gdb_assert (num_regs <= arc_reginfo.last_temp_regnum);
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_temp_regs[i]))
-		{
-		  warning (_("Temporary register %s not found in target "
-			     "description feature %s\n"), arc_temp_regs[i],
-			   featname2);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  /* Saved registers */
-	  num_regs = arc_reginfo.first_saved_regnum;
-	  for (i = 0; arc_saved_regs[i]; i++)
-	    {
-	      gdb_assert (num_regs <= arc_reginfo.last_saved_regnum);
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_saved_regs[i]))
-		{
-		  warning (_("Saved register %s not found in target "
-			     "description feature %s\n"), arc_saved_regs[i],
-			   featname2);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-	}
-      else
-	{
-	  /* Neither core nor reduced core. Silently reject here, because we
-	     have no evidence we were an ARC architecture at all. But after
-	     this we can put an ARC specific warning. */
-	  return NULL;
-	}
-
-      /* We must have the pointer registers */
-      featname1 = "org.gnu.gdb.arc.core-pointers";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  static const char *const arc_gp_names[] = {
-	    "r26", "gp", NULL };
-	  static const char *const arc_fp_names[] = {
-	    "r27", "fp", NULL };
-	  static const char *const arc_sp_names[] = {
-	    "r28", "sp", NULL };
-	  int  i;
-
-	  /* Pointer registers */
-	  if (!tdesc_numbered_register_choices (feature, tdesc_data,
-						ARC_GP_REGNUM, arc_gp_names))
-	    {
-	      warning (_("Global pointer register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	      
-	  if (!tdesc_numbered_register_choices (feature, tdesc_data,
-						ARC_FP_REGNUM, arc_fp_names))
-	    {
-	      warning (_("Frame pointer register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-
-	  if (!tdesc_numbered_register_choices (feature, tdesc_data,
-						ARC_SP_REGNUM, arc_sp_names))
-	    {
-	      warning (_("Stack pointer register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	}
-      else
-	{
-	  warning (_("ARC pointer register feature must be present\n"));
-	  return NULL;
-	}
-
-
-      /* We must have the link registers in either v1 or v2 ISA. This is the
-	 point at which we can decide the ISA, and thereafter, the ISA must
-	 be consistent. */
-      featname1 = "org.gnu.gdb.arc.core-linkregs.v1";
-      featname2 = "org.gnu.gdb.arc.core-linkregs.v2";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  static const char *const arc_ilink1_names[] = {
-	    "r29", "ilink1", NULL };
-	  static const char *const arc_ilink2_names[] = {
-	    "r30", "ilink2", NULL };
-	  static const char *const arc_blink_names[] = {
-	    "r31", "blink", NULL };
-	  const char *featname1 = "org.gnu.gdb.arc.core-linkregs.v1";
-	  int  i;
-
-	  arc_reginfo.isa = ARC_ISA_V1;
-
-	  /* Link registers for V1 ISA */
-	  if (!tdesc_numbered_register_choices (feature, tdesc_data,
-						ARC_ILINK1_REGNUM,
-						arc_ilink1_names))
-	    {
-	      warning (_("ILINK1 register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!tdesc_numbered_register_choices (feature, tdesc_data,
-						ARC_ILINK2_REGNUM,
-						arc_ilink2_names))
-	    {
-	      warning (_("ILINK2 register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!tdesc_numbered_register_choices (feature, tdesc_data,
-						ARC_BLINK_REGNUM,
-						arc_blink_names))
-	    {
-	      warning (_("BLINK register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	}
-      else if ((feature = tdesc_find_feature (info.target_desc, featname2)))
-	{
-	  static const char *const arc_ilink_p0_names[] = {
-	    "r29", "ilink_p0", NULL };
-	  static const char *const arc_blink_names[] = {
-	    "r31", "blink", NULL };
-	  int  i;
-
-	  arc_reginfo.isa = ARC_ISA_V2;
-#ifdef WITH_SIM
-	  arc_sim_aux_map = NULL;	/* No simulator for V2 ISA */
-#endif
-
-	  /* Link registers for V2 ISA */
-	  if (!tdesc_numbered_register_choices (feature, tdesc_data,
-					       ARC_ILINK_P0_REGNUM,
-					       arc_ilink_p0_names))
-	    {
-	      warning (_("ILINK_P0 register not found in target "
-			 "description feature %s"), featname2);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!tdesc_numbered_register (feature, tdesc_data, 30, "r30"))
-	    {
-	      warning (_("Register r30 not found in target "
-			 "description feature %s"), featname2);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!tdesc_numbered_register_choices (feature, tdesc_data,
-						ARC_BLINK_REGNUM,
-						arc_blink_names))
-	    {
-	      warning (_("BLINK register not found in target "
-			 "description feature %s"), featname2);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	}
-      else
-	{
-	  warning (_("ARC link register feature must be present\n"));
-	  return NULL;
-	}
-
-
-      /* Optionally have the extension core registers. Bizarrely this does
-	 seem permissible, even with the reduced configuration */
-      featname1 = "org.gnu.gdb.arc.core-extension";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  /* Extension core register set */
-	  static const char *const arc_ext_regs[] = {
-	    "r32", "r33", "r34", "r35", "r36", "r37", "r38", "r39",
-	    "r40", "r41", "r42", "r43", "r44", "r45", "r46", "r47",
-	    "r48", "r49", "r50", "r51", "r52", "r53", "r54", "r55",
-	    "r56", "r57", "r58", "r59", NULL
-	  };
-	  int  i;
-
-	  arc_reginfo.is_extended_core_p = TRUE;
-
-	  /* Extended registers */
-	  num_regs = ARC_FIRST_EXTENSION_REGNUM;
-	  for (i = 0; arc_ext_regs[i];  i++)
-	    {
-	      gdb_assert (num_regs <= ARC_LAST_EXTENSION_REGNUM);
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_ext_regs[i]))
-		{
-		  warning (_("Extensions register %s not found in target "
-			     "description feature %s\n"), arc_ext_regs[i],
-			   featname1);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-	}
-
-      /* We must have the "other" registers */
-      featname1="org.gnu.gdb.arc.core-other";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  int  i;
-
-	  /* "Other" registers */
-	  if (!tdesc_numbered_register (feature, tdesc_data,
-					ARC_LP_COUNT_REGNUM, "lp_count"))
-	    {
-	      warning (_("LP_COUNT register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-
-	  if (!tdesc_numbered_register (feature, tdesc_data, ARC_LIMM_REGNUM,
-					"limm"))
-	    {
-	      warning (_("LIMM register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	    if (!tdesc_numbered_register (feature, tdesc_data, ARC_PCL_REGNUM,
-					  "pcl"))
-	    {
-	      warning (_("PCL register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	}
-      else
-	{
-	  warning (_("ARC \"other\" register feature must be present\n"));
-	  return NULL;
-	}
-
-
-      /* The number of registers so far is fixed. */
-      num_regs = ARC_MAX_CORE_REGS;
-
-      /* Must have the baseline auxiliary registers for the ISA */
-      featname1 = "org.gnu.gdb.arc.aux-baseline.v1";
-      featname2 = "org.gnu.gdb.arc.aux-baseline.v2";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-
-	  if (arc_reginfo.isa != ARC_ISA_V1)
-	    {
-	      warning (_("ARC baseline auxiliary regs V1 do not match ISA "
-			 "version of core"));
-	     tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    } 
-
-	  /* Numbered registers */
-	  if (!tdesc_numbered_register (feature, tdesc_data,
-					ARC_AUX_IDENTITY_REGNUM,
-					"identity"))
-	    {
-	      warning (_("IDENTITY auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-
-	  if (!tdesc_numbered_register (feature, tdesc_data, ARC_PC_REGNUM,
-					"pc"))
-	    {
-	      warning (_("PC auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data,
-					   ARC_AUX_STATUS32_REGNUM,
-					   ARC_AUX_STATUS32_SIM_REGNUM,
-					   "status32"))
-	    {
-	      warning (_("STATUS32 auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-
-	  /* End of numbered regs */
-	  num_regs = ARC_MAX_NUMBERED_REGS;
-
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					   ARC_AUX_BTA_SIM_REGNUM, "bta"))
-	    {
-	      warning (_("BTA auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					   ARC_AUX_ECR_SIM_REGNUM, "ecr"))
-	    {
-	      warning (_("ECR auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					   ARC_AUX_ICAUSE1_SIM_REGNUM,
-					   "icause1"))
-	    {
-	      warning (_("ICAUSE1 auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					   ARC_AUX_ICAUSE2_SIM_REGNUM,
-					   "icause2"))
-	    {
-	      warning (_("ICAUSE2 auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					"int_vector_base"))
-	    {
-	      warning (_("INT_VECTOR_BASE auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					   ARC_AUX_AUX_IRQ_LV12_SIM_REGNUM,
-					   "aux_irq_lv12"))
-	    {
-	      warning (_("AUX_IRQ_LV12 auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					  ARC_AUX_STATUS32_L1_SIM_REGNUM,
-					  "status32_l1"))
-	    {
-	      warning (_("STATUS32_L1 auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					   ARC_AUX_STATUS32_L2_SIM_REGNUM,
-					   "status32_l2"))
-	    {
-	      warning (_("STATUS32_L2 auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					  ARC_AUX_ERET_SIM_REGNUM, "eret"))
-	    {
-	      warning (_("ERET auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					  ARC_AUX_ERBTA_SIM_REGNUM, "erbta"))
-	    {
-	      warning (_("ERBTA auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					  ARC_AUX_ERSTATUS_SIM_REGNUM,
-					  "erstatus"))
-	    {
-	      warning (_("ERSTATUS auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-				       "bcr_ver"))
-	    {
-	      warning (_("BCR_VER auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-				       "bta_link_build"))
-	    {
-	      warning (_("BTA_LINK_BUILD auxiliary register not found in "
-			 "target description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-				       "vecbase_ac_build"))
-	    {
-	      warning (_("VECBASE_AC_BUILD auxiliary register not found in "
-			 "target description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-				       "rf_build"))
-	    {
-	      warning (_("RF_BUILD auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-				       "isa_config"))
-	    {
-	      warning (_("ISA_CONFIG auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					  ARC_AUX_AUX_IRQ_LEV_SIM_REGNUM,
-					  "aux_irq_lev"))
-	    {
-	      warning (_("AUX_IRQ_LEV auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					  ARC_AUX_AUX_IRQ_HINT_SIM_REGNUM,
-					  "aux_irq_hint"))
-	    {
-	      warning (_("AUX_IRQ_HINT auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					  ARC_AUX_AUX_IENABLE_SIM_REGNUM,
-					  "aux_ienable"))
-	    {
-	      warning (_("AUX_IENABLE auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					  ARC_AUX_AUX_ITRIGGER_SIM_REGNUM,
-					  "aux_itrigger"))
-	    {
-	      warning (_("AUX_ITRIGGER auxiliary register not found in target "
-			 "description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					  ARC_AUX_AUX_IRQ_PULSE_CANCEL_SIM_REGNUM,
-					  "aux_irq_pulse_cancel"))
-	    {
-	      warning (_("AUX_IRQ_PULSE_CANCEL auxiliary register not found in "
-			 "target description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					  ARC_AUX_AUX_IRQ_PENDING_SIM_REGNUM,
-					  "aux_irq_pending"))
-	    {
-	      warning (_("AUX_IRQ_PENDING auxiliary register not found in "
-			 "target description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	}
-      else if ((feature = tdesc_find_feature (info.target_desc, featname2)))
-	{
-	  /* Unnumbered baseline auxiliary registers for V2 ISA */
-	  static const char *const arc_aux_baseline_regs[] = {
-	    "bta", "ecr", "int_vector_base", "status32_p0",
-	    "aux_user_sp", "eret", "erbta", "erstatus",
-	    "bcr_ver", "bta_link_build", "vecbase_ac_build", "rf_build",
-	    "dccm_build", NULL
-	  };
-	  int  i;
-
-	  if (arc_reginfo.isa != ARC_ISA_V2)
-	    {
-	      warning (_("ARC baseline auxiliary regs V2 do not match ISA "
-			 "version of core"));
-	     tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    } 
-
-	  /* Note. Simulator is not supported for V2 ISA, so no need for
-	     mapping. */
-
-	  /* Numbered registers */
-	  if (!tdesc_numbered_register (feature, tdesc_data,
-					ARC_AUX_IDENTITY_REGNUM,
-					"identity"))
-	    {
-	      warning (_("IDENTITY auxiliary register not found in target "
-			 "description feature %s"), featname2);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-
-	  if (!tdesc_numbered_register (feature, tdesc_data, ARC_PC_REGNUM,
-					"pc"))
-	    {
-	      warning (_("PC auxiliary register not found in target "
-			 "description feature %s"), featname2);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!tdesc_numbered_register (feature, tdesc_data,
-					ARC_AUX_STATUS32_REGNUM, "status32"))
-	    {
-	      warning (_("STATUS32 auxiliary register not found in target "
-			 "description feature %s"), featname2);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-
-	  /* End of numbered regs */
-	  num_regs = ARC_MAX_NUMBERED_REGS;
-
-	  /* Unnumbered registers */
-	  for (i = 0; arc_aux_baseline_regs[i];  i++)
-	    {
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_aux_baseline_regs[i]))
-		{
-		  warning (_("Baseline auxiliary register %s not found in "
-			     "target description feature %s"),
-			   arc_aux_baseline_regs[i], featname2);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-	}
-      else
-	{
-	  warning (_("ARC baseline auxiliary register feature must be "
-		     "present"));
-	  return NULL;
-	}
-
-      /* Optional instruction set auxiliary registers */
-      featname1 = "org.gnu.gdb.arc.aux-iset";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  /* Non-simulator regs */
-	  static const char *const arc_aux_iset_regs[] = {
-	    "jli_base", "ldi_base", "ei_base", NULL
-	  };
-	  int  i;
-
-	  arc_reginfo.lp_start_regnum = num_regs;
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					   ARC_AUX_LP_START_SIM_REGNUM,
-					   "lp_start"))
-	    {
-	      warning (_("LP_START auxiliary register not found in "
-			 "target description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  arc_reginfo.lp_end_regnum = num_regs;
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					  ARC_AUX_LP_END_SIM_REGNUM,
-					  "lp_end"))
-	    {
-	      warning (_("LP_END auxiliary register not found in "
-			 "target description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-
-	  for (i = 0; arc_aux_iset_regs[i];  i++)
-	    {
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_aux_iset_regs[i]))
-		{
-		  warning (_("Instruction set auxiliary register %s not found "
-			     "in target description feature %s"),
-			   arc_aux_iset_regs[i], featname1);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  arc_reginfo.have_aux_iset_p = TRUE;
-	}
-
-      /* Optional external host debug auxiliary registers */
-      featname1 = "org.gnu.gdb.arc.aux-debug";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					"debug"))
-	    {
-	      warning (_("DEBUG auxiliary register not found in "
-			 "target description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-
-	  arc_reginfo.have_aux_debug_p = TRUE;
-	}
-
-      /* Optional extended exception state auxiliary registers, V1 or V2
-	 version. */
-      featname1 = "org.gnu.gdb.arc.aux-exception.v1";
-      featname2 = "org.gnu.gdb.arc.aux-exception.v2";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  if (arc_reginfo.isa != ARC_ISA_V1)
-	    {
-	      warning (_("ARC extended exception state auxiliary regs V1 do "
-			 "not match ISA version of core"));
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    } 
-
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					   ARC_AUX_EFA_SIM_REGNUM, "efa"))
-	    {
-	      warning (_("EFA auxiliary register not found in "
-			 "target description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					   ARC_AUX_BTA_L1_SIM_REGNUM, "bta_l1"))
-	    {
-	      warning (_("BTA_L1 auxiliary register not found in "
-			 "target description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					   ARC_AUX_BTA_L2_SIM_REGNUM, "bta_l2"))
-	    {
-	      warning (_("BTA_L2 auxiliary register not found in "
-			 "target description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-
-	  arc_reginfo.have_aux_exception_p = TRUE;
-	}
-      else if ((feature = tdesc_find_feature (info.target_desc, featname2)))
-	{
-	  if (arc_reginfo.isa != ARC_ISA_V2)
-	    {
-	      warning (_("ARC extended exception state auxiliary regs V2 do "
-			 "not match ISA version of core"));
-	     tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    } 
-
-	  if (!arc_tdesc_sim_aux_register (arc_sim_aux_map,
-					   &arc_sim_aux_map_size, feature,
-					   tdesc_data, num_regs++,
-					   ARC_AUX_EFA_SIM_REGNUM, "efa"))
-	    {
-	      warning (_("EFA auxiliary register not found in "
-			 "target description feature %s"), featname2);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-
-	  arc_reginfo.have_aux_exception_p = TRUE;
-	}
-
-      /* Optional timer auxiliary registers */
-      featname1 = "org.gnu.gdb.arc.aux-timer.v1";
-      featname2 = "org.gnu.gdb.arc.aux-timer.v2";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  /* Unnumbered timer auxiliary registers for V1 ISA */
-	  static const char *const arc_aux_timer_regs[] = {
-	    "count0", "control0", "limit0", "count1",
-	    "control1", "limit1", NULL
-	  };
-	  int  i;
-
-	  if (arc_reginfo.isa != ARC_ISA_V1)
-	    {
-	      warning (_("ARC timer auxiliary regs V1 do "
-			 "not match ISA version of core"));
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    } 
-
-	  for (i = 0; arc_aux_timer_regs[i];  i++)
-	    {
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_aux_timer_regs[i]))
-		{
-		  warning (_("Timer auxiliary register %s not found "
-			     "in target description feature %s"),
-			   arc_aux_timer_regs[i], featname1);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  arc_reginfo.have_aux_timer_p = TRUE;
-	}
-      else if ((feature = tdesc_find_feature (info.target_desc, featname2)))
-	{
-	  /* Unnumbered timer auxiliary registers for V2 ISA */
-	  static const char *const arc_aux_timer_regs[] = {
-	    "count0", "control0", "limit0", "count1",
-	    "control1", "limit1", "aux_rtc_ctrl", "aux_rtc_low",
-	    "aux_rtc_high", NULL
-	  };
-	  int  i;
-
-	  if (arc_reginfo.isa != ARC_ISA_V2)
-	    {
-	      warning (_("ARC timer auxiliary regs V2 do "
-			 "not match ISA version of core"));
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    } 
-
-	  for (i = 0; arc_aux_timer_regs[i];  i++)
-	    {
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_aux_timer_regs[i]))
-		{
-		  warning (_("Timer auxiliary register %s not found "
-			     "in target description feature %s"),
-			   arc_aux_timer_regs[i], featname2);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  arc_reginfo.have_aux_timer_p = TRUE;
-	}
-
-      /* Optional user extension auxiliary registers */
-      featname1 = "org.gnu.gdb.arc.aux-user";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					"xpu"))
-	    {
-	      warning (_("XPU auxiliary register not found in "
-			 "target description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-
-	  arc_reginfo.have_aux_user_p = TRUE;
-	}
-
-      /* Optional build configuration auxiliary registers */
-      featname1 = "org.gnu.gdb.arc.aux-bcr";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  /* Unnumbered build control registers */
-	  static const char *const arc_aux_bcrs[] = {
-	    "bcr_0x60", "bcr_0x61", "bcr_0x62", "bcr_0x63",
-	    "bcr_0x64", "bcr_0x65", "bcr_0x66", "bcr_0x67",
-	    "bcr_0x68", "bcr_0x69", "bcr_0x6a", "bcr_0x6b",
-	    "bcr_0x6c", "bcr_0x6d", "bcr_0x6e", "bcr_0x6f",
-	    "bcr_0x70", "bcr_0x71", "bcr_0x72", "bcr_0x73",
-	    "bcr_0x74", "bcr_0x75", "bcr_0x76", "bcr_0x77",
-	    "bcr_0x78", "bcr_0x79", "bcr_0x7a", "bcr_0x7b",
-	    "bcr_0x7c", "bcr_0x7d", "bcr_0x7e", "bcr_0x7f",
-	    "bcr_0xc0", "bcr_0xc1", "bcr_0xc2", "bcr_0xc3",
-	    "bcr_0xc4", "bcr_0xc5", "bcr_0xc6", "bcr_0xc7",
-	    "bcr_0xc8", "bcr_0xc9", "bcr_0xca", "bcr_0xcb",
-	    "bcr_0xcc", "bcr_0xcd", "bcr_0xce", "bcr_0xcf",
-	    "bcr_0xd0", "bcr_0xd1", "bcr_0xd2", "bcr_0xd3",
-	    "bcr_0xd4", "bcr_0xd5", "bcr_0xd6", "bcr_0xd7",
-	    "bcr_0xd8", "bcr_0xd9", "bcr_0xda", "bcr_0xdb",
-	    "bcr_0xdc", "bcr_0xdd", "bcr_0xde", "bcr_0xdf",
-	    "bcr_0xe0", "bcr_0xe1", "bcr_0xe2", "bcr_0xe3",
-	    "bcr_0xe4", "bcr_0xe5", "bcr_0xe6", "bcr_0xe7",
-	    "bcr_0xe8", "bcr_0xe9", "bcr_0xea", "bcr_0xeb",
-	    "bcr_0xec", "bcr_0xed", "bcr_0xee", "bcr_0xef",
-	    "bcr_0xf0", "bcr_0xf1", "bcr_0xf2", "bcr_0xf3",
-	    "bcr_0xf4", "bcr_0xf5", "bcr_0xf6", "bcr_0xf7",
-	    "bcr_0xf8", "bcr_0xf9", "bcr_0xfa", "bcr_0xfb",
-	    "bcr_0xfc", "bcr_0xfd", "bcr_0xfe", "bcr_0xff",
-	    NULL
-	  };
-	  int  i;
-
-	  for (i = 0; arc_aux_bcrs[i];  i++)
-	    {
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_aux_bcrs[i]))
-		{
-		  warning (_("Build configuration auxiliary register %s not "
-			     "found in target description feature %s"),
-			   arc_aux_bcrs[i], featname1);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  arc_reginfo.have_aux_bcr_p = TRUE;
-	}
-
-      /* Optional instruction cache auxiliary registers */
-      featname1 = "org.gnu.gdb.arc.aux-icache";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  /* Unnumbered instruction cache registers */
-	  static const char *const arc_aux_icache_regs[] = {
-	    "ic_ivic", "ic_ctrl", "ic_lil", "ic_ivil",
-	    "ic_ram_address", "ic_tag", "ic_data", NULL
-	  };
-	  int  i;
-
-	  for (i = 0; arc_aux_icache_regs[i];  i++)
-	    {
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_aux_icache_regs[i]))
-		{
-		  warning (_("Instruction cache auxiliary register %s not "
-			     "found in target description feature %s"),
-			   arc_aux_icache_regs[i], featname1);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  arc_reginfo.have_aux_icache_p = TRUE;
-	}
-
-      /* Optional data cache auxiliary registers */
-      featname1 = "org.gnu.gdb.arc.aux-dcache";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  /* Unnumbered data cache registers */
-	  static const char *const arc_aux_dcache_regs[] = {
-	    "dc_ivdc", "dc_ctrl", "dc_flsh", "aux_cache_limit",
-	    "dc_ldl", "dc_ivdl", "dc_fldl", "dc_ram_addr",
-	    "dc_tag", "dc_data", NULL
-	  };
-	  int  i;
-
-	  for (i = 0; arc_aux_dcache_regs[i];  i++)
-	    {
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_aux_dcache_regs[i]))
-		{
-		  warning (_("Data cache auxiliary register %s not "
-			     "found in target description feature %s"),
-			   arc_aux_dcache_regs[i], featname1);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  arc_reginfo.have_aux_dcache_p = TRUE;
-	}
-
-      /* Optional DCCM auxiliary registers */
-      featname1 = "org.gnu.gdb.arc.aux-dccm";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  /* Unnumbered DCCM registers */
-	  static const char *const arc_aux_dccm_regs[] = {
-	    "aux_dccm", "dccm_build", NULL
-	  };
-	  int  i;
-
-	  for (i = 0; arc_aux_dccm_regs[i];  i++)
-	    {
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_aux_dccm_regs[i]))
-		{
-		  warning (_("DCCM auxiliary register %s not "
-			     "found in target description feature %s"),
-			   arc_aux_dccm_regs[i], featname1);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  arc_reginfo.have_aux_dccm_p = TRUE;
-	}
-
-      /* Optional ICCM auxiliary registers */
-      featname1 = "org.gnu.gdb.arc.aux-iccm";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  /* Unnumbered ICCM registers */
-	  static const char *const arc_aux_iccm_regs[] = {
-	    "aux_iccm", "iccm_build", NULL
-	  };
-	  int  i;
-
-	  for (i = 0; arc_aux_iccm_regs[i];  i++)
-	    {
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_aux_iccm_regs[i]))
-		{
-		  warning (_("ICCM auxiliary register %s not "
-			     "found in target description feature %s"),
-			   arc_aux_iccm_regs[i], featname1);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  arc_reginfo.have_aux_iccm_p = TRUE;
-	}
-
-      /* Optional peripheral memory region auxiliary registers */
-      featname1 = "org.gnu.gdb.arc.aux-pmr";
-      if ((feature = tdesc_find_feature (info.target_desc, featname1)))
-	{
-	  if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					"dmp_peripheral"))
-	    {
-	      warning (_("DMP_PERIPHERAL auxiliary register not found in "
-			 "target description feature %s"), featname1);
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    }
-
-	  arc_reginfo.have_aux_pmr_p = TRUE;
-	}
-
-      /* Optional memory protection unit auxiliary registers (V2 ISA only) */
-      featname2 = "org.gnu.gdb.arc.aux-mpu.v2";
-      if ((feature = tdesc_find_feature (info.target_desc, featname2)))
-	{
-	  /* Unnumbered MPU registers */
-	  static const char *const arc_aux_mpu_regs[] = {
-	    "mpu_build", "mpu_en", "mpu_ecr", "mpu_rdb0",
-	    "mpu_rdp0", "mpu_rdb1", "mpu_rdp1", "mpu_rdb2",
-	    "mpu_rdp2", "mpu_rdb3", "mpu_rdp3", "mpu_rdb4",
-	    "mpu_rdp4", "mpu_rdb5", "mpu_rdp5", "mpu_rdb6",
-	    "mpu_rdp6", "mpu_rdb6", "mpu_rdp6", "mpu_rdb8",
-	    "mpu_rdp8", "mpu_rdb9", "mpu_rdp9", "mpu_rdb10",
-	    "mpu_rdp10", "mpu_rdb11", "mpu_rdp11", "mpu_rdb12",
-	    "mpu_rdp12", "mpu_rdb13", "mpu_rdp13", "mpu_rdb14",
-	    "mpu_rdp14", "mpu_rdb15", "mpu_rdp15", NULL
-	  };
-	  int  i;
-
-	  if (arc_reginfo.isa != ARC_ISA_V2)
-	    {
-	      warning (_("ARC MPU auxiliary regs V2 do "
-			 "not match ISA version of core"));
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    } 
-
-	  for (i = 0; arc_aux_mpu_regs[i];  i++)
-	    {
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_aux_mpu_regs[i]))
-		{
-		  warning (_("MPU auxiliary register %s not "
-			     "found in target description feature %s"),
-			   arc_aux_mpu_regs[i], featname2);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  arc_reginfo.have_aux_mpu_p = TRUE;
-	}
-
-      /* Optional SmaRT auxiliary registers (V2 ISA only) */
-      featname2 = "org.gnu.gdb.arc.aux-smart.v2";
-      if ((feature = tdesc_find_feature (info.target_desc, featname2)))
-	{
-	  /* Unnumbered SmaRT registers */
-	  static const char *const arc_aux_smart_regs[] = {
-	    "smart_build", "smart_control", "smart_data", NULL
-	  };
-	  int  i;
-
-	  if (arc_reginfo.isa != ARC_ISA_V2)
-	    {
-	      warning (_("ARC SmaRT auxiliary regs V2 do "
-			 "not match ISA version of core"));
-	      tdesc_data_cleanup (tdesc_data);
-	      return NULL;
-	    } 
-
-	  for (i = 0; arc_aux_smart_regs[i];  i++)
-	    {
-	      if (!tdesc_numbered_register (feature, tdesc_data, num_regs++,
-					    arc_aux_smart_regs[i]))
-		{
-		  warning (_("SmaRT auxiliary register %s not "
-			     "found in target description feature %s"),
-			   arc_aux_smart_regs[i], featname2);
-		  tdesc_data_cleanup (tdesc_data);
-		  return NULL;
-		}
-	    }
-
-	  arc_reginfo.have_aux_smart_p = TRUE;
-	}
+      /* Try to get a valid target description, otherwise give up. */
+      if (!(tdesc_data = arc_tdesc_init (&arc_reginfo, info.target_desc)))
+	return NULL;
     }
   else
     {

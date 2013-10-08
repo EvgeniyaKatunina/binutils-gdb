@@ -1,3 +1,12 @@
+2013-10-08  Jeremy Bennett <jeremy.bennett@embecosm.com>
+
+	Work in progress
+
+	* arc-tdep.c (arc_tdesc_reg_missing, arc_tdesc_core_basecase_init)
+	(arc_tdesc_core_reduced_init, arc_tdesc_core_pointers_init):
+	Created.
+	(arc_tdesc_init): Call separate methods for each register group.
+
 2013-10-01  Jeremy Bennett <jeremy.bennett@embecosm.com>
 
 	Work in progress.
