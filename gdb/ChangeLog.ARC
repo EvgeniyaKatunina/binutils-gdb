@@ -1,3 +1,9 @@
+2014-05-14  Jeremy Bennett  <jeremy.bennett@embecosm.com>
+
+	Fork from main ARC 7.5 branch for XML development
+
+	* gdb/arc-tdep.c: Remove trailing spaces from file.
+
 2014-04-10  Anton Kolesov  <Anton.Kolesov@synopsys.com>
 
 	* arc-elf-tdep.c (arc_elf_write_pc): Use gdbarch_[pc|ps]_regnum

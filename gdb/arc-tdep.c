@@ -20,12 +20,12 @@
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 3 of the License, or
    (at your option) any later version.
-  
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-  
+
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -42,8 +42,8 @@
 
 /* -------------------------------------------------------------------------- */
 /*!@mainpage GNU Debugger for the Synopsys ARC Architecture
-  
-   ## Stack Frame Layout:                                
+
+   ## Stack Frame Layout:
 
    This shows the layout of the stack frame for the general case of a
    function call; a given function might not have a variable number of
@@ -52,72 +52,72 @@
    (i.e. one which calls no other functions) does not need to save the
    contents of the BLINK register (which holds its return address), and a
    function might not have a frame pointer.
-                                                                               
+
    @note The stack grows downward, so SP points below FP in memory; SP always
          points to the last used word on the stack, not the first one.
 
-   @verbatim                                                                               
-                      |                       |   |                            
-                      |      arg word N       |   | caller's                   
-                      |           :           |   | frame                      
-                      |      arg word 10      |   |                            
-                      |      arg word 9       |   |                            
-          old SP ---> |-----------------------| --                             
-                      |   var arg word 8      |   |                            
-                      |           :           |   |                            
-                      |   var arg word P+1    |   |                            
-                      |-----------------------|   |                            
-                      |                       |   |                            
-                      |      callee-saved     |   |                            
-                      |        registers      |   |                            
-                      |                       |   |                            
-                      |-----------------------|   |                            
-                      |      saved blink (*)  |   |                            
-                      |-----------------------|   | callee's                   
-                      |      saved FP         |   | frame                      
-              FP ---> |-----------------------|   |                            
-                      |                       |   |                            
-                      |         local         |   |                            
-                      |       variables       |   |                            
-                      |                       |   |                            
-                      |       register        |   |                            
-                      |      spill area       |   |                            
-                      |                       |   |                            
-                      |     outgoing args     |   |                            
-                      |                       |   |                            
-              SP ---> |-----------------------| --                             
-                      |                       |                                
-                      |         unused        |                                
-                      |                       |                                
-                                  |                                            
-                                  |                                            
-                                  V                                            
-                              downwards                                        
+   @verbatim
+                      |                       |   |
+                      |      arg word N       |   | caller's
+                      |           :           |   | frame
+                      |      arg word 10      |   |
+                      |      arg word 9       |   |
+          old SP ---> |-----------------------| --
+                      |   var arg word 8      |   |
+                      |           :           |   |
+                      |   var arg word P+1    |   |
+                      |-----------------------|   |
+                      |                       |   |
+                      |      callee-saved     |   |
+                      |        registers      |   |
+                      |                       |   |
+                      |-----------------------|   |
+                      |      saved blink (*)  |   |
+                      |-----------------------|   | callee's
+                      |      saved FP         |   | frame
+              FP ---> |-----------------------|   |
+                      |                       |   |
+                      |         local         |   |
+                      |       variables       |   |
+                      |                       |   |
+                      |       register        |   |
+                      |      spill area       |   |
+                      |                       |   |
+                      |     outgoing args     |   |
+                      |                       |   |
+              SP ---> |-----------------------| --
+                      |                       |
+                      |         unused        |
+                      |                       |
+                                  |
+                                  |
+                                  V
+                              downwards
    @endverbatim
 
    (*) if saved; blink may not be saved in leaf functions.
-                                                                               
+
    The list of arguments to be passed to a function is considered to be a
    sequence of _N_ words (as though all the parameters were stored in order in
    memory with each parameter occupying an integral number of words).  Words
    1..8 are passed in registers 0..7; if the function has more than 8 words of
    arguments then words 9..@em N are passed on the stack in the caller's frame.
-                                                                               
+
    If the function has a variable number of arguments, e.g. it has a form such
    as
 
       function(p1, p2, ...);
-                                                                               
+
    and _P_ words are required to hold the values of the named parameters
    (which are passed in registers 0..@em P -1), then the remaining 8 - _P_
    words passed in registers _P_..7 are spilled into the top of the frame so
    that the anonymous parameter words occupy a continous region.
-                                                                               
+
    ## Build Configuration:
 
-   The ARC gdb may be built in two different configurations, according to 
-   the nature of the target that it is to debug:                          
-                                                                               
+   The ARC gdb may be built in two different configurations, according to
+   the nature of the target that it is to debug:
+
    arc-tdep.[ch] provides operations which are common to both configurations.
    Operations which are specific to one, or which have different variants in
    each configuration, are provided by the other files.
@@ -125,22 +125,22 @@
    ### arc-elf32-gdb
 
    For debugging 'bare-metal' builds of user code (i.e. built with newlib)
-                                                                               
-   ARC-specific files:                                              
-   - arc-tdep.[ch]                                               
-   - arc-elf-tdep.[ch]                                           
-   - arc-aux-registers.[ch]                                      
-   - arc-board.[ch]                                              
-                                                                               
+
+   ARC-specific files:
+   - arc-tdep.[ch]
+   - arc-elf-tdep.[ch]
+   - arc-aux-registers.[ch]
+   - arc-board.[ch]
+
    ### arc-linux-uclibc-gdb
 
    For deugging user mode Linux applications, via communication to the remote
    gdbserver process, running on Linux for ARC700
-                                                                               
+
    ARC-specific files
-   - arc-tdep.[ch]                                               
+   - arc-tdep.[ch]
    - arc-linux-tdep.[ch]
-                                                                               
+
    ## Doxygen commenting
 
    [Doxygen](http://www.doxygen.org/) format comments are used throughout,
@@ -150,12 +150,12 @@
 
 /* -------------------------------------------------------------------------- */
 /*!@file
-                                                                               
+
    # ARC General Target Dependent Code
 
    This file provides support for the ARC processor family's target
    dependencies.  In particular, it has knowledge of the processor ABI.
-                                                                               
+
    See the Synopsys DesignWare ARC Instruction Set Architecture and ABI
    manuals for more details. */
 /* -------------------------------------------------------------------------- */
@@ -401,7 +401,7 @@ arc_is_update_fp_fi (struct arc_unwind_cache *info, struct arcDisState *state)
     }
 }	/* arc_update_fp_act () */
 
-	  
+
 /*! Do we need to update frame info for "sub sp,sp" of various forms.
 
     @note Could be sub or sub.s and could be "sub.s sp,sp,const"
@@ -440,7 +440,7 @@ arc_is_sub_sp_fi (struct arc_unwind_cache *info, struct arcDisState *state)
     @param[in] message         Text to include with the output
     @param[in] info            Frame info to dump
     @param[in] addresses_known Non-zero (TRUE) if have saved address, zero
-                               (FALSE) if have saved offset. */  
+                               (FALSE) if have saved offset. */
 static void
 arc_print_frame_info (struct gdbarch *gdbarch,
 		      char *message,
@@ -599,7 +599,7 @@ arc_create_cache (struct frame_info *this_frame)
     @return                    The frame base address */
 static CORE_ADDR
 arc_frame_base_address (struct frame_info  *this_frame,
-			 void              **prologue_cache) 
+			 void              **prologue_cache)
 {
   struct gdbarch *gdbarch = get_frame_arch (this_frame);
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
@@ -678,7 +678,6 @@ arc_find_this_sp (struct arc_unwind_cache * info,
 		  fprintf_unfiltered (gdb_stdlog, "saved R%02d is at %s\n", i,
 				      phex (info->saved_regs[i].addr,
 					    BYTES_IN_ADDRESS));
-				   
 
 		  if (target_read_memory
 		      ((CORE_ADDR) info->saved_regs[i].addr,
@@ -1214,7 +1213,7 @@ arc_extract_return_value (struct gdbarch *gdbarch, struct type *type,
       if (arc_debug)
 	{
 	  fprintf_unfiltered (gdb_stdlog, "returning 0x%s%s\n",
-			      phex (high, BYTES_IN_REGISTER), 
+			      phex (high, BYTES_IN_REGISTER),
 			      phex (low, BYTES_IN_REGISTER));
 	}
     }
@@ -1651,7 +1650,7 @@ arc_dummy_id (struct gdbarch *gdbarch, struct frame_info *this_frame)
     @param[in] args           The arguments values (in target byte order)
     @param[in] sp             Current value of SP.
     @param[in] struct_return  Non-zero (TRUE) if structures are returned by
-                              the function. 
+                              the function.
     @param[in] struct_addr    Hidden address for returning a struct.
     @return                   SP of new frame. */
 static CORE_ADDR
@@ -1739,7 +1738,7 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
 	    fprintf_unfiltered (gdb_stdlog,
 				"copying arg %d, val 0x%08x, len %d into mem\n",
 				i, * ((int *) value_contents (args[i])), len);
-	    
+
 	  data += space;
 	}
 
@@ -1827,7 +1826,7 @@ arc_push_dummy_code (struct gdbarch *gdbarch, CORE_ADDR sp, CORE_ADDR funaddr,
   *real_pc = funaddr;
   *bp_addr = entry_point_address ();
   return sp;
-    
+
 }	/* arc_push_dummy_code *() */
 
 
@@ -1989,11 +1988,11 @@ arc_get_longjmp_target (struct frame_info *frame, CORE_ADDR *pc)
 
     Return the convention used by the ABI for returning a result of the given
     type from a function; it may also be required to:
-   
+
     1. set the return value (this is for the situation where the debugger user
        has issued a "return <value>" command to request immediate return from
        the current function with the given result; or
-   
+
     2. get the return value ((this is for the situation where the debugger
        user has executed a "call <function>" command to execute the specified
        function in the target program, and that function has a non-void result
@@ -2272,7 +2271,7 @@ arc_frame_this_id (struct frame_info *this_frame,
     @param[in] this_frame  The stack frame under consideration
     @param[in] this_cache  Any cached prologue associated with THIS frame,
                            which may therefore tell us about registers in the
-			   PREVIOUS frame. 
+			   PREVIOUS frame.
     @param[in] regnum      The register of interest in the PREVIOUS frame
     @return                 A value structure representing the register. */
 static struct value *
@@ -2296,7 +2295,7 @@ arc_frame_prev_register (struct frame_info *this_frame,
     {
       regnum = ARC_BLINK_REGNUM;
     }
-  
+
   if (arc_debug)
     {
       fprintf_unfiltered (gdb_stdlog, "-*-*-*\n Regnum = %d\n", regnum);
@@ -2337,7 +2336,7 @@ arc_dwarf2_frame_init_reg (struct gdbarch *gdbarch,
 
 
 /*! Signal trampoline frame unwinder.
- 
+
     Allow frame unwinding to happen from within signal handlers.
 
     @note This function has changed from GDB 6.8. It now takes a reference to
@@ -2432,7 +2431,7 @@ arc_sigtramp_frame_this_id (struct frame_info *this_frame,
     @param[in] this_frame  The stack frame under consideration
     @param[in] this_cache  Any cached prologue associated with THIS frame,
                            which may therefore tell us about registers in the
-			   PREVIOUS frame. 
+			   PREVIOUS frame.
     @param[in] regnum      The register of interest in the PREVIOUS frame
     @return                 A value structure representing the register. */
 static struct value *
@@ -2767,7 +2766,7 @@ arc_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   frame_base_append_sniffer (gdbarch, dwarf2_frame_base_sniffer);
   frame_base_append_sniffer (gdbarch, arc_sigtramp_frame_base_sniffer);
   frame_base_append_sniffer (gdbarch, arc_frame_base_sniffer);
-  
+
   /* Put OS specific stuff into gdbarch. This can override any of the generic
      ones specified above. */
   arc_gdbarch_osabi_init (gdbarch);
@@ -2786,43 +2785,43 @@ arc_dump_tdep (struct gdbarch *gdbarch, struct ui_file *file)
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
 
-  fprintf_unfiltered (file, "arc_dump_tdep: is_sigtramp = %p\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: is_sigtramp = %p\n",
 		      tdep->is_sigtramp);
-  fprintf_unfiltered (file, "arc_dump_tdep: sigcontext_addr = %p\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: sigcontext_addr = %p\n",
 		      tdep->sigcontext_addr);
-  fprintf_unfiltered (file, "arc_dump_tdep: sc_reg_offset = %p\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: sc_reg_offset = %p\n",
 		      tdep->sc_reg_offset);
-  fprintf_unfiltered (file, "arc_dump_tdep: sc_num_regs = %d\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: sc_num_regs = %d\n",
 		      tdep->sc_num_regs);
-  fprintf_unfiltered (file, "arc_dump_tdep: opella_target = %s\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: opella_target = %s\n",
 		      tdep->opella_target == NONE ? "none"
 		      : tdep->opella_target == ARC600 ? "ARC600"
 		      : tdep->opella_target == ARC700 ? "ARC700"
 		      : tdep->opella_target == ARCEM ? "ARCEM"
 		      : tdep->opella_target == INVALID ? "INVALID" : "Help!");
-  fprintf_unfiltered (file, "arc_dump_tdep: num_core_regs = %d\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: num_core_regs = %d\n",
 		      tdep->num_core_regs);
-  fprintf_unfiltered (file, "arc_dump_tdep: num_regs = %d\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: num_regs = %d\n",
 		      tdep->num_regs);
-  fprintf_unfiltered (file, "arc_dump_tdep: num_pseudo_regs = %d\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: num_pseudo_regs = %d\n",
 		      tdep->num_pseudo_regs);
-  fprintf_unfiltered (file, "arc_dump_tdep: first_arg_regnum = %d\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: first_arg_regnum = %d\n",
 		      tdep->first_arg_regnum);
-  fprintf_unfiltered (file, "arc_dump_tdep: last_arg_regnum = %d\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: last_arg_regnum = %d\n",
 		      tdep->last_arg_regnum);
-  fprintf_unfiltered (file, "arc_dump_tdep: first_callee_saved_regnum = %d\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: first_callee_saved_regnum = %d\n",
 		      tdep->first_callee_saved_regnum);
-  fprintf_unfiltered (file, "arc_dump_tdep: last_callee_saved_regnum = %d\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: last_callee_saved_regnum = %d\n",
 		      tdep->last_callee_saved_regnum);
-  fprintf_unfiltered (file, "arc_dump_tdep: pc_regnum = %d\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: pc_regnum = %d\n",
 		      tdep->pc_regnum);
-  fprintf_unfiltered (file, "arc_dump_tdep: fp_regnum = %d\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: fp_regnum = %d\n",
 		      tdep->fp_regnum);
-  fprintf_unfiltered (file, "arc_dump_tdep: sp_regnum = %d\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: sp_regnum = %d\n",
 		      tdep->sp_regnum);
-  fprintf_unfiltered (file, "arc_dump_tdep: ps_regnum = %d\n", 
+  fprintf_unfiltered (file, "arc_dump_tdep: ps_regnum = %d\n",
 		      tdep->ps_regnum);
-  
+
 }	/* arc_dump_tdep () */
 
 
@@ -2834,7 +2833,7 @@ arc_dump_tdep (struct gdbarch *gdbarch, struct ui_file *file)
     @param[in] gdbarch  Current GDB architecture
 */
 void
-arc_initialize_disassembler (struct gdbarch *gdbarch, 
+arc_initialize_disassembler (struct gdbarch *gdbarch,
 			     struct disassemble_info *info)
 {
   /* N.B. this type cast is not strictly correct: the return types differ! */
