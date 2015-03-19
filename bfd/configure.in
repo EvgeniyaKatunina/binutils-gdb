@@ -1121,6 +1121,19 @@ AC_MSG_RESULT($bfd_file_ptr)
 AC_SUBST(bfd_file_ptr)
 AC_SUBST(bfd_ufile_ptr)
 
+# Added to support default CPU behaviour
+AC_ARG_WITH(cpu,
+[AS_HELP_STRING([--with-cpu],
+		[specify which cpu the BFD should set as default])],
+      WITH_CPU=$withval,
+      WITH_CPU=no)
+
+if test "$WITH_CPU" != no; then
+  AC_SUBST(DEFAULT_TARGET_CPU)
+  DEFAULT_TARGET_CPU="$WITH_CPU"
+  AC_DEFINE_UNQUOTED(DEFAULT_TARGET_CPU, [$WITH_CPU],
+            [Sets the default CPU type when not defined in input files])
+fi	
 
 tdefaults=""
 test -n "${defvec}" && tdefaults="${tdefaults} -DDEFAULT_VECTOR=${defvec}"
