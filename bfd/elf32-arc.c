@@ -30,26 +30,26 @@
 
 
 /* Sets the default cpu flags for the provided cpu at build time */
-#define DEFAULT_CPU_FLAGS = 0
+#define DEFAULT_CPU_FLAGS 0
 #ifdef DEFAULT_TARGET_CPU
   #if DEFAULT_TARGET_CPU == arc600
-    #undef DEFAULT_TARGET_CPU
+    #undef DEFAULT_CPU_FLAGS
     #define DEFAULT_CPU_FLAGS 2
   #endif
   #if DEFAULT_TARGET_CPU == arc601
-    #undef DEFAULT_TARGET_CPU
-    #define DEFAULT_CPU_FLAGS 3
+    #undef DEFAULT_CPU_FLAGS
+    #define DEFAULT_CPU_FLAGS 4
   #endif
   #if DEFAULT_TARGET_CPU == arc700
-    #undef DEFAULT_TARGET_CPU
+    #undef DEFAULT_CPU_FLAGS
     #define DEFAULT_CPU_FLAGS 3
   #endif
   #if DEFAULT_TARGET_CPU == arcem
-    #undef DEFAULT_TARGET_CPU
+    #undef DEFAULT_CPU_FLAGS
     #define DEFAULT_CPU_FLAGS 5
   #endif
   #if DEFAULT_TARGET_CPU == archs
-    #undef DEFAULT_TARGET_CPU
+    #undef DEFAULT_CPU_FLAGS
     #define DEFAULT_CPU_FLAGS 6
   #endif
 #endif
