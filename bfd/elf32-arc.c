@@ -28,30 +28,17 @@
 #include "elf-bfd.h"
 #include "elf/arc.h"
 
+enum {
+  arc600 = 2,
+  arc601 = 4,
+  arc700 = 3,
+  arcem  = 5,
+  archs  = 6,
+};
 
 /* Sets the default cpu flags for the provided cpu at build time */
-#define DEFAULT_CPU_FLAGS 0
-#ifdef DEFAULT_TARGET_CPU
-  #if DEFAULT_TARGET_CPU == arc600
-    #undef DEFAULT_CPU_FLAGS
-    #define DEFAULT_CPU_FLAGS 2
-  #endif
-  #if DEFAULT_TARGET_CPU == arc601
-    #undef DEFAULT_CPU_FLAGS
-    #define DEFAULT_CPU_FLAGS 4
-  #endif
-  #if DEFAULT_TARGET_CPU == arc700
-    #undef DEFAULT_CPU_FLAGS
-    #define DEFAULT_CPU_FLAGS 3
-  #endif
-  #if DEFAULT_TARGET_CPU == arcem
-    #undef DEFAULT_CPU_FLAGS
-    #define DEFAULT_CPU_FLAGS 5
-  #endif
-  #if DEFAULT_TARGET_CPU == archs
-    #undef DEFAULT_CPU_FLAGS
-    #define DEFAULT_CPU_FLAGS 6
-  #endif
+#ifndef DEFAULT_TARGET_CPU
+  #define DEFAULT_TARGET_CPU 0
 #endif
 
 /* Debug trace for Position independent stuff */
@@ -1029,7 +1016,7 @@ arc_elf_final_write_processing (bfd *abfd,
   /* Record whatever is the current syscall ABI version */
   elf_elfheader (abfd)->e_flags |= E_ARC_OSABI_CURRENT;
   if(elf_flags_init(abfd) == FALSE)
-    elf_elfheader (abfd)->e_flags |= DEFAULT_CPU_FLAGS;
+    elf_elfheader (abfd)->e_flags |= DEFAULT_TARGET_CPU;
 }
 
 /* Handle an ARCompact 'middle-endian' relocation.  */
