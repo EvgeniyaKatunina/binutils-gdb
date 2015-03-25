@@ -41,6 +41,8 @@ enum {
   #define DEFAULT_TARGET_CPU 0
 #endif
 
+#define DEFAULT_TARGET_MACHINE (DEFAULT_TARGET_CPU >= arcem ? EM_ARCV2 : EM_ARCOMPACT)
+
 /* Debug trace for Position independent stuff */
 #if 1
 #define BFD_DEBUG_PIC(x)
@@ -1016,7 +1018,10 @@ arc_elf_final_write_processing (bfd *abfd,
   /* Record whatever is the current syscall ABI version */
   elf_elfheader (abfd)->e_flags |= E_ARC_OSABI_CURRENT;
   if(elf_flags_init(abfd) == FALSE)
+  {
     elf_elfheader (abfd)->e_flags |= DEFAULT_TARGET_CPU;
+    elf_elfheader (abfd)->e_machine = DEFAULT_TARGET_MACHINE;
+  }
 }
 
 /* Handle an ARCompact 'middle-endian' relocation.  */
