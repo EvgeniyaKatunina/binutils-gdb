@@ -1609,7 +1609,10 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
   int arg_reg = ARC_FIRST_ARG_REGNUM;
-
+  unsigned int len, space;
+  unsigned int next_len = 0;
+  unsigned int next_space = 0;
+  int gcc_calling_convention = 1;
   ARC_ENTRY_DEBUG ("nargs = %d", nargs)
 
   /* Push the return address. */
@@ -1649,10 +1652,22 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
 
          @note Must round each argument's size up to an integral number of
                words. */
+      if (nargs != 0)
+      {
+	len = TYPE_LENGTH (value_type (args[0]));
+	space = arc_round_up_to_words (gdbarch, len);
+      }
       for (i = 0; i < nargs; i++)
 	{
-	  unsigned int len = TYPE_LENGTH (value_type (args[i]));
-	  unsigned int space = arc_round_up_to_words (gdbarch, len);
+	  if (i != nargs - 1)
+	  {
+	    next_len = TYPE_LENGTH (value_type (args[i+1]));
+	    next_space = arc_round_up_to_words (gdbarch, next_len);
+	    if (gcc_calling_convention && space < next_space)
+	    {
+	      space = next_space;
+	    }
+	  } 
 
 	  total_space += space;
 
@@ -1661,6 +1676,9 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
 	      fprintf_unfiltered (gdb_stdlog, "arg %d: %d bytes -> %u\n", i,
 				  len, arc_round_up_to_words (gdbarch, len));
 	    }
+
+	  len = next_len;
+	  space = next_space;
 	}
 
       /* Allocate a buffer to hold a memory image of the arguments. */
@@ -1673,10 +1691,22 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
 
       /* Now copy all of the arguments into the buffer, correctly aligned */
       data = memory_image;
+      if (nargs != 0)
+      {
+	len = TYPE_LENGTH (value_type (args[0]));
+        space = arc_round_up_to_words (gdbarch, len);
+      }
       for (i = 0; i < nargs; i++)
 	{
-	  unsigned int len = TYPE_LENGTH (value_type (args[i]));
-	  unsigned int space = arc_round_up_to_words (gdbarch, len);
+	  if (i != nargs -1)
+	    {
+	      next_len = TYPE_LENGTH (value_type (args[i+1]));
+	      next_space = arc_round_up_to_words (gdbarch, len);
+	      if (gcc_calling_convention && space < next_space)
+	      {
+		space = next_space;
+	      }
+	    }
 
 	  (void) memcpy (data, value_contents (args[i]), (size_t) len);
 	  if (arc_debug)
