@@ -1581,6 +1581,38 @@ arc_dummy_id (struct gdbarch *gdbarch, struct frame_info *this_frame)
 
 }	/* arc_dummy_id () */
 
+static void
+arc_traverse_args()
+{
+  if (nargs != 0)
+    {                                                                      
+      len = TYPE_LENGTH (value_type (args[0]));
+      space = arc_round_up_to_words (gdbarch, len);
+    }
+  for (i = 0; i < nargs; i++)
+    {
+      if (i != nargs - 1)
+	{
+	  next_len = TYPE_LENGTH (value_type (args[i+1]));
+	  next_space = arc_round_up_to_words (gdbarch, next_len);
+	  if (gcc_calling_convention && space < next_space)
+	    {
+	      space = next_space;
+	    }
+	} 
+									  
+      total_space += space;
+									  
+      if (arc_debug)
+	{
+	  fprintf_unfiltered (gdb_stdlog, "arg %d: %d bytes -> %u\n", i,
+			    len, arc_round_up_to_words (gdbarch, len));
+	}
+									  
+      len = next_len;
+      space = next_space;
+    }
+}
 
 /*! Push stack frame for a dummy call.
 
@@ -1701,7 +1733,7 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
 	  if (i != nargs -1)
 	    {
 	      next_len = TYPE_LENGTH (value_type (args[i+1]));
-	      next_space = arc_round_up_to_words (gdbarch, len);
+	      next_space = arc_round_up_to_words (gdbarch, next_len);
 	      if (gcc_calling_convention && space < next_space)
 	      {
 		space = next_space;
@@ -1709,11 +1741,15 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
 	    }
 
 	  (void) memcpy (data, value_contents (args[i]), (size_t) len);
+	  (void) memset (data + len, 0, (size_t) (space - len));
+
 	  if (arc_debug)
 	    fprintf_unfiltered (gdb_stdlog,
-				"copying arg %d, val 0x%08x, len %d into mem\n",
-				i, * ((int *) value_contents (args[i])), len);
-	    
+				"copying arg %d, val 0x%08x, len %d into mem\n"
+				"len = %d, next_len = %d, space = %d,"
+				"next_space = %d, data = %d\n",
+				i, * ((int *) value_contents (args[i])), len,
+				len, next_len, space, next_space, data);
 	  data += space;
 	}
 
