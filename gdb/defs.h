@@ -168,7 +168,7 @@ enum language
   {
     language_unknown,		/* Language not known */
     language_auto,		/* Placeholder for automatic setting */
-    language_c,			/* C */
+language_c,			/* C */
     language_cplus,		/* C++ */
     language_d,			/* D */
     language_go,		/* Go */
@@ -189,6 +189,12 @@ enum precision_type
     single_precision,
     double_precision,
     unspecified_precision
+  };
+
+enum calling_convention
+  {
+    gcc,
+    clang
   };
 
 /* * A generic, not quite boolean, enumeration.  This is used for

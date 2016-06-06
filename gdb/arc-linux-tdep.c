@@ -55,6 +55,7 @@
 #include "opcode/arc.h"
 #include "opcodes/arc-dis-old.h"
 #include "exceptions.h"
+#include "gdb/gdbcmd.h"
 /* lookup_minimal_symbol */
 #include "minsyms.h"
 /* Not used directly, but BMSYMBOL_VALUE_ADDRESS macro expansion depends on it. */
@@ -63,6 +64,7 @@
 #include "symtab.h"
 /* delete_single_step_breakpoints */
 #include "gdbthread.h"
+#include "gdb/cli/cli-decode.h"
 
 /* ARC header files */
 #include "arc-tdep.h"
@@ -1041,6 +1043,19 @@ arc_gdbarch_osabi_init (struct gdbarch *gdbarch)
   set_gdbarch_skip_solib_resolver (gdbarch, arc_linux_skip_solib_resolver);
   set_gdbarch_iterate_over_regset_sections
     (gdbarch, arc_linux_iterate_over_regset_sections);
+   
+  add_setshow_enum_cmd ("gcc_calling_convention",
+				no_class,
+				calling_convention,
+  _("Set gcc calling convention."),
+  _("Show whether gcc calling convention is set or no."),
+  _("If on, when executing \"call\" gdb command, gdb will put arguments into\n\
+  registers accordingly to gcc calling convention (if calling f(int,\n\
+  long long), r1 register will be filled with zeros, otherwise (if not using\n\
+  gcc calling convention) r1 will contain part of long long value)."),
+				NULL,
+				&setlist, &showlist);
+
   /* No need for any other GDB architecture core file functions. */
 
   /* GNU/Linux uses SVR4-style shared libraries, with 32-bit ints, longs and

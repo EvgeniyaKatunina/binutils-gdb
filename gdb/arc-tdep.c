@@ -186,6 +186,7 @@
 #include "language.h"
 #include "demangle.h"
 #include "objfiles.h"
+#include "gdb/gdbcmd.h"   
 
 #include "target-descriptions.h"
 
@@ -249,7 +250,7 @@ struct arc_unwind_cache
 
 /*! Global debug flag */
 int arc_debug;
-
+const char * calling_convention;
 
 /* -------------------------------------------------------------------------- */
 /* Static data used only here.                                                */
@@ -1581,7 +1582,7 @@ arc_dummy_id (struct gdbarch *gdbarch, struct frame_info *this_frame)
 
 }	/* arc_dummy_id () */
 
-static void
+/*static void
 arc_traverse_args()
 {
   if (nargs != 0)
@@ -1612,7 +1613,7 @@ arc_traverse_args()
       len = next_len;
       space = next_space;
     }
-}
+}*/
 
 /*! Push stack frame for a dummy call.
 
@@ -1644,9 +1645,12 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
   unsigned int len, space;
   unsigned int next_len = 0;
   unsigned int next_space = 0;
-  int gcc_calling_convention = 1;
+  int gcc = 0;
   ARC_ENTRY_DEBUG ("nargs = %d", nargs)
 
+  #ifdef __GNUC__
+    gcc = 1;
+  #endif
   /* Push the return address. */
   regcache_cooked_write_unsigned (regcache, ARC_BLINK_REGNUM, bp_addr);
 
@@ -1695,7 +1699,7 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
 	  {
 	    next_len = TYPE_LENGTH (value_type (args[i+1]));
 	    next_space = arc_round_up_to_words (gdbarch, next_len);
-	    if (gcc_calling_convention && space < next_space)
+	    if (gcc && space < next_space)
 	    {
 	      space = next_space;
 	    }
@@ -1734,7 +1738,7 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
 	    {
 	      next_len = TYPE_LENGTH (value_type (args[i+1]));
 	      next_space = arc_round_up_to_words (gdbarch, next_len);
-	      if (gcc_calling_convention && space < next_space)
+	      if (gcc && space < next_space)
 	      {
 		space = next_space;
 	      }

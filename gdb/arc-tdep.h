@@ -317,6 +317,7 @@ void arc_initialize_disassembler(struct gdbarch *gdbarch,
 /* -------------------------------------------------------------------------- */
 
 extern int  arc_debug;
+int  gcc_calling_convention;
 
 /* -------------------------------------------------------------------------- */
 /*			  Globally visible functions                          */

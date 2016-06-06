@@ -55,6 +55,7 @@
 #include "dis-asm.h"
 #include "opcode/arc.h"
 #include "opcodes/arc-dis-old.h"
+#include "gdb/cli/cli-decode.h"
 
 /* ARC header files */
 #include "arc-tdep.h"
@@ -460,6 +461,16 @@ arc_gdbarch_osabi_init (struct gdbarch *gdbarch)
   set_gdbarch_cannot_store_register (gdbarch, arc_elf_cannot_store_register);
   set_gdbarch_breakpoint_from_pc (gdbarch, arc_elf_breakpoint_from_pc);
   set_gdbarch_write_pc(gdbarch, arc_elf_write_pc);
+  add_setshow_auto_boolean_cmd ("gcc_calling_convention", no_class,
+				&gcc_calling_convention,
+  "Set gcc calling convention.",
+  "Show whether gcc calling convention is set or no.",
+  "If on, when executing \"call\" gdb command, gdb will put arguments into\n\
+  registers accordingly to gcc calling convention (if calling f(int,\n\
+  long long), r1 register will be filled with zeros, otherwise (if not using\n\
+  gcc calling convention) r1 will contain part of long long value).",
+				 NULL,
+				 &setlist, &showlist);
 
   /* On ARC 600 BRK_S instruction advances PC, unlike other ARC cores. */
   if (arc_mach_is_arc600 (gdbarch))
