@@ -197,6 +197,12 @@ enum arc_regnum
   ARC_LAST_CALLEE_SAVED_REGNUM  = ARC_R25_REGNUM,
 };
 
+enum calling_convention
+{
+  gcc,
+  clang
+};
+
 /* Assign regnums to compatible register feature. */
 enum arc_compat_regnum
 {

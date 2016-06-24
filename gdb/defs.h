@@ -191,12 +191,6 @@ enum precision_type
     unspecified_precision
   };
 
-enum calling_convention
-  {
-    gcc,
-    clang
-  };
-
 /* * A generic, not quite boolean, enumeration.  This is used for
    set/show commands in which the options are on/off/automatic.  */
 enum auto_boolean
