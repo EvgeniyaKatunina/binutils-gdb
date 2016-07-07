@@ -61,6 +61,7 @@
 #include "target-dcache.h"
 #include "terminal.h"
 #include "solist.h"
+#include "arc-tdep.h"
 
 /* Prototypes for local functions */
 
@@ -7627,7 +7628,10 @@ _initialize_infrun (void)
   int i;
   int numsigs;
   struct cmd_list_element *c;
-
+//  CORE_ADDR pc;
+//  struct regcache *regcache = get_current_regcache ();
+//  regcache_cooked_read_unsigned (regcache, ARC_PC_REGNUM, &pc);
+//  calling_conventions_mode = arc_default_calling_convention(pc); 
   add_info ("signals", signals_info, _("\
 What debugger does when program gets various signals.\n\
 Specify a signal as argument to print info on that signal only."));
@@ -7913,4 +7917,13 @@ or signalled."),
 			   show_observer_mode,
 			   &setlist,
 			   &showlist);
+add_setshow_enum_cmd ("calling_convention", no_class, calling_convention_enums,
+      	        &calling_conventions_mode,                                                                                                   		_("Set calling convention."),
+      		_("Show which calling convention is set."),
+      		_("If gcc calling convention is set, when executing \"call\" gdb command, gdb will\n\
+      		  put arguments into\n\
+registers accordingly to gcc calling convention (if calling f(int,\n\
+long long), r1 register will be filled with zeros, otherwise (if using clang calling convention) r1 will contain part of long long value)."),
+      			NULL, NULL,
+      			&setlist, &showlist);
 }

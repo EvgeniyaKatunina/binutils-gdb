@@ -406,6 +406,7 @@ void
 post_create_inferior (struct target_ops *target, int from_tty)
 {
 
+  fprintf_unfiltered(gdb_stdlog, "IN POST_CREATE_INFERIOR");
   /* Be sure we own the terminal in case write operations are performed.  */ 
   target_terminal_ours ();
 

@@ -200,7 +200,7 @@ enum arc_regnum
 static const char calling_convention_gcc[] = "gcc";
 static const char calling_convention_clang[] = "clang";
 
-static const char * calling_conventions_mode = arc_default_calling_convention ();
+static const char * calling_conventions_mode = calling_convention_clang;
 
 static const char *const calling_convention_enums[] =
 {
@@ -367,6 +367,7 @@ arc_mach_is_arcv2(struct gdbarch *gdbarch)
     return gdbarch_bfd_arch_info (gdbarch)->mach == bfd_mach_arc_arcv2;
 }
 
+const char * arc_default_calling_convention (CORE_ADDR pc);
 #endif /* ARC_TDEP_H */
 
 /* vim: set sts=2 shiftwidth=2 ts=8: */

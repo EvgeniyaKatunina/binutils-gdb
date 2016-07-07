@@ -1047,17 +1047,6 @@ arc_gdbarch_osabi_init (struct gdbarch *gdbarch)
   set_gdbarch_iterate_over_regset_sections
     (gdbarch, arc_linux_iterate_over_regset_sections);
 
-  add_setshow_enum_cmd ("calling_convention", no_class, calling_convention_enums,
-		        &calling_conventions_mode,
-			_("Set calling convention."),
-			_("Show which calling convention is set."),
-			_("If gcc calling convention is set, when executing \"call\" gdb command, gdb will\n\
-			  put arguments into\n\
-  registers accordingly to gcc calling convention (if calling f(int,\n\
-  long long), r1 register will be filled with zeros, otherwise (if using clang calling convention) r1 will contain part of long long value)."),
-				NULL, NULL,
-				&setlist, &showlist);
-
   /* No need for any other GDB architecture core file functions. */
 
   /* GNU/Linux uses SVR4-style shared libraries, with 32-bit ints, longs and

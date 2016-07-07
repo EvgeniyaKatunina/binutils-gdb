@@ -1614,20 +1614,24 @@ arc_traverse_args()
     }
 }*/
 
-static const char *
-arc_default_calling_convention ()
+const char *
+arc_default_calling_convention (CORE_ADDR pc)
 {
+  CORE_ADDR func_addr;
   struct compunit_symtab *cust = find_pc_compunit_symtab (func_addr);
-  const char * producer = COMPUNIT_PRODUCER (cust);
-  if (cust != NULL && producer != NULL)
+  if (find_pc_partial_function (pc, NULL, &func_addr, NULL))
     {
-      if (startswith (producer, "GNU "))
+      const char * producer = COMPUNIT_PRODUCER (cust);
+      if (cust != NULL && producer != NULL)
 	{
-	  return calling_convention_gcc;
-	}
-      if (startswith (producer, "clang ")
-	{
-	  return calling_convention_clang;
+	  if (startswith (producer, "GNU "))
+	    {
+	      return calling_convention_gcc;
+	    }
+	  if (startswith (producer, "clang "))
+	    {
+	      return calling_convention_clang;
+	    }
 	}
     }
   return calling_convention_clang;
@@ -1669,7 +1673,7 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
   //one default. Write set handler for choosing calling convention defined by   //the user.
   //TODO2: use common code for both arc-linux-tdep and arc-elf-tdep (write it
   //in arc-tdep)
-  int gcc = strcmp (calling_conventions_mode, calling_conventions_gcc);
+  int gcc = strcmp (calling_conventions_mode, calling_convention_gcc);
   ARC_ENTRY_DEBUG ("nargs = %d", nargs)
 
   /* Push the return address. */
