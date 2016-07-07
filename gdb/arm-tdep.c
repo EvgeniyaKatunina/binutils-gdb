@@ -1401,7 +1401,6 @@ arm_skip_prologue (struct gdbarch *gdbarch, CORE_ADDR pc)
 	post_prologue_pc
 	  = arm_skip_stack_protector (post_prologue_pc, gdbarch);
 
-
       /* GCC always emits a line note before the prologue and another
 	 one after, even if the two are at the same address or on the
 	 same line.  Take advantage of this so that we do not need to

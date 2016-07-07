@@ -197,10 +197,15 @@ enum arc_regnum
   ARC_LAST_CALLEE_SAVED_REGNUM  = ARC_R25_REGNUM,
 };
 
-enum calling_convention
+static const char calling_convention_gcc[] = "gcc";
+static const char calling_convention_clang[] = "clang";
+
+static const char * calling_conventions_mode = arc_default_calling_convention ();
+
+static const char *const calling_convention_enums[] =
 {
-  gcc,
-  clang
+  calling_convention_gcc,
+  calling_convention_clang
 };
 
 /* Assign regnums to compatible register feature. */

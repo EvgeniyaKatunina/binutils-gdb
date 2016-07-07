@@ -250,7 +250,6 @@ struct arc_unwind_cache
 
 /*! Global debug flag */
 int arc_debug;
-const char * calling_convention;
 
 /* -------------------------------------------------------------------------- */
 /* Static data used only here.                                                */
@@ -1615,6 +1614,25 @@ arc_traverse_args()
     }
 }*/
 
+static const char *
+arc_default_calling_convention ()
+{
+  struct compunit_symtab *cust = find_pc_compunit_symtab (func_addr);
+  const char * producer = COMPUNIT_PRODUCER (cust);
+  if (cust != NULL && producer != NULL)
+    {
+      if (startswith (producer, "GNU "))
+	{
+	  return calling_convention_gcc;
+	}
+      if (startswith (producer, "clang ")
+	{
+	  return calling_convention_clang;
+	}
+    }
+  return calling_convention_clang;
+}
+
 /*! Push stack frame for a dummy call.
 
     @note Any arguments are already in target byte order. We just need to
@@ -1645,12 +1663,15 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
   unsigned int len, space;
   unsigned int next_len = 0;
   unsigned int next_space = 0;
-  int gcc = 0;
+
+  //TODO: calling_conventions_mode from gdb/arc-tdep.h must be defined
+  //accordingly to the information from headers if it is, otherwise use
+  //one default. Write set handler for choosing calling convention defined by   //the user.
+  //TODO2: use common code for both arc-linux-tdep and arc-elf-tdep (write it
+  //in arc-tdep)
+  int gcc = strcmp (calling_conventions_mode, calling_conventions_gcc);
   ARC_ENTRY_DEBUG ("nargs = %d", nargs)
 
-  #ifdef __GNUC__
-    gcc = 1;
-  #endif
   /* Push the return address. */
   regcache_cooked_write_unsigned (regcache, ARC_BLINK_REGNUM, bp_addr);
 
