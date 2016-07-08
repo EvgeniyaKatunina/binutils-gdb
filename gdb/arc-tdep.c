@@ -186,8 +186,8 @@
 #include "language.h"
 #include "demangle.h"
 #include "objfiles.h"
-#include "gdb/gdbcmd.h"   
-
+#include "gdb/gdbcmd.h"
+#include "gdb/calling_conventions.h"
 #include "target-descriptions.h"
 
 /* ARC header files */
@@ -1614,28 +1614,6 @@ arc_traverse_args()
     }
 }*/
 
-const char *
-arc_default_calling_convention (CORE_ADDR pc)
-{
-  CORE_ADDR func_addr;
-  struct compunit_symtab *cust = find_pc_compunit_symtab (func_addr);
-  if (find_pc_partial_function (pc, NULL, &func_addr, NULL))
-    {
-      const char * producer = COMPUNIT_PRODUCER (cust);
-      if (cust != NULL && producer != NULL)
-	{
-	  if (startswith (producer, "GNU "))
-	    {
-	      return calling_convention_gcc;
-	    }
-	  if (startswith (producer, "clang "))
-	    {
-	      return calling_convention_clang;
-	    }
-	}
-    }
-  return calling_convention_clang;
-}
 
 /*! Push stack frame for a dummy call.
 
@@ -1673,7 +1651,7 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
   //one default. Write set handler for choosing calling convention defined by   //the user.
   //TODO2: use common code for both arc-linux-tdep and arc-elf-tdep (write it
   //in arc-tdep)
-  int gcc = strcmp (calling_conventions_mode, calling_convention_gcc);
+  int is_calling_convention_gcc = calling_convention_equal (calling_convention_mode, calling_convention_gcc); 
   ARC_ENTRY_DEBUG ("nargs = %d", nargs)
 
   /* Push the return address. */
@@ -1724,7 +1702,7 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
 	  {
 	    next_len = TYPE_LENGTH (value_type (args[i+1]));
 	    next_space = arc_round_up_to_words (gdbarch, next_len);
-	    if (gcc && space < next_space)
+	    if (is_calling_convention_gcc && space < next_space)
 	    {
 	      space = next_space;
 	    }
@@ -1763,7 +1741,7 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
 	    {
 	      next_len = TYPE_LENGTH (value_type (args[i+1]));
 	      next_space = arc_round_up_to_words (gdbarch, next_len);
-	      if (gcc && space < next_space)
+	      if (is_calling_convention_gcc && space < next_space)
 	      {
 		space = next_space;
 	      }

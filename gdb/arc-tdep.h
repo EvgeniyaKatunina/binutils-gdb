@@ -197,16 +197,6 @@ enum arc_regnum
   ARC_LAST_CALLEE_SAVED_REGNUM  = ARC_R25_REGNUM,
 };
 
-static const char calling_convention_gcc[] = "gcc";
-static const char calling_convention_clang[] = "clang";
-
-static const char * calling_conventions_mode = calling_convention_clang;
-
-static const char *const calling_convention_enums[] =
-{
-  calling_convention_gcc,
-  calling_convention_clang
-};
 
 /* Assign regnums to compatible register feature. */
 enum arc_compat_regnum
@@ -328,7 +318,6 @@ void arc_initialize_disassembler(struct gdbarch *gdbarch,
 /* -------------------------------------------------------------------------- */
 
 extern int  arc_debug;
-int  gcc_calling_convention;
 
 /* -------------------------------------------------------------------------- */
 /*			  Globally visible functions                          */
@@ -367,7 +356,6 @@ arc_mach_is_arcv2(struct gdbarch *gdbarch)
     return gdbarch_bfd_arch_info (gdbarch)->mach == bfd_mach_arc_arcv2;
 }
 
-const char * arc_default_calling_convention (CORE_ADDR pc);
 #endif /* ARC_TDEP_H */
 
 /* vim: set sts=2 shiftwidth=2 ts=8: */

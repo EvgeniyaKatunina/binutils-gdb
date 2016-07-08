@@ -62,6 +62,7 @@
 #include "terminal.h"
 #include "solist.h"
 #include "arc-tdep.h"
+#include "gdb/calling_conventions.h"
 
 /* Prototypes for local functions */
 
@@ -3380,7 +3381,29 @@ set_step_info (struct frame_info *frame, struct symtab_and_line sal)
   tp->current_line = sal.line;
 }
 
-/* Clear context switchable stepping state.  */
+void
+set_calling_convention (char *args, int from_tty,
+                       struct cmd_list_element *c)
+{
+  if (args != NULL && is_calling_convention (args[0]))
+  {
+    calling_convention_mode = args[0];
+    show_calling_convention (gdb_stdout, from_tty, NULL, NULL);
+  }
+  else
+  {
+    error (_("Specify valid calling convention, gcc and clang are available."));
+  }
+}
+
+void show_calling_convention (struct ui_file *file, int from_tty,
+                              struct cmd_list_element *c, const char *value)
+{
+  CORE_ADDR pc;
+  struct regcache *regcache = get_current_regcache ();
+//  regcache_cooked_read_unsigned (regcache, ARC_PC_REGNUM, &pc);
+//  calling_convention_mode = arc_default_calling_convention(pc); /* Clear context switchable stepping state.  */
+}
 
 void
 init_thread_stepping_state (struct thread_info *tss)
@@ -7918,12 +7941,12 @@ or signalled."),
 			   &setlist,
 			   &showlist);
 add_setshow_enum_cmd ("calling_convention", no_class, calling_convention_enums,
-      	        &calling_conventions_mode,                                                                                                   		_("Set calling convention."),
+      	        &calling_convention_mode,                                                                                                   		_("Set calling convention."),
       		_("Show which calling convention is set."),
       		_("If gcc calling convention is set, when executing \"call\" gdb command, gdb will\n\
       		  put arguments into\n\
 registers accordingly to gcc calling convention (if calling f(int,\n\
 long long), r1 register will be filled with zeros, otherwise (if using clang calling convention) r1 will contain part of long long value)."),
-      			NULL, NULL,
+      			set_calling_convention, show_calling_convention,
       			&setlist, &showlist);
 }

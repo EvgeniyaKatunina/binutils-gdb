@@ -48,7 +48,6 @@ gdb/arm-tdep.c
 .project
 ARC_GDB/
 CMakeLists.txt
-Makefile
 RemoteSystemsTempFiles/
 TEST
 bfd/Makefile

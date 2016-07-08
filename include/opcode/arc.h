@@ -22,6 +22,8 @@
    the Free Software Foundation, 51 Franklin Street - Fifth Floor, Boston,
    MA 02110-1301, USA.  */
 
+#ifndef ARC_H
+#define ARC_H
 /* List of the various cpu types.
    The tables currently use bit masks to say whether the instruction or
    whatever is supported by a particular cpu.  This lets us have one entry
@@ -477,3 +479,4 @@ extern int ac_get_load_sdasym_insn_type (arc_insn, int);
 extern int ac_get_store_sdasym_insn_type (arc_insn, int);
 extern int arc_limm_fixup_adjust (arc_insn);
 extern int arc_test_wb (void);
+#endif
