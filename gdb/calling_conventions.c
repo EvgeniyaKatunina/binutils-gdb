@@ -8,7 +8,8 @@ const char calling_convention_clang[] = "clang";
 const char *const calling_convention_enums[] =
 {
   calling_convention_gcc,
-  calling_convention_clang
+  calling_convention_clang,
+  NULL
 };
 
 const char *

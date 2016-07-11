@@ -383,7 +383,7 @@ do_set_command (const char *arg, int from_tty, struct cmd_list_element *c)
 		  strcat (msg, ", ");
 		strcat (msg, c->enums[i]);
 	      }
-	    error (_("Requires an argument. Valid arguments are %s."), 
+	    error (_("Requires an argument. Valid arguments are %s."),
 		   msg);
 	  }
 

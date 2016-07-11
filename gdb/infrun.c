@@ -3382,30 +3382,6 @@ set_step_info (struct frame_info *frame, struct symtab_and_line sal)
 }
 
 void
-set_calling_convention (char *args, int from_tty,
-                       struct cmd_list_element *c)
-{
-  if (args != NULL && is_calling_convention (args[0]))
-  {
-    calling_convention_mode = args[0];
-    show_calling_convention (gdb_stdout, from_tty, NULL, NULL);
-  }
-  else
-  {
-    error (_("Specify valid calling convention, gcc and clang are available."));
-  }
-}
-
-void show_calling_convention (struct ui_file *file, int from_tty,
-                              struct cmd_list_element *c, const char *value)
-{
-  CORE_ADDR pc;
-  struct regcache *regcache = get_current_regcache ();
-//  regcache_cooked_read_unsigned (regcache, ARC_PC_REGNUM, &pc);
-//  calling_convention_mode = arc_default_calling_convention(pc); /* Clear context switchable stepping state.  */
-}
-
-void
 init_thread_stepping_state (struct thread_info *tss)
 {
   tss->stepped_breakpoint = 0;
@@ -7628,6 +7604,33 @@ show_exec_direction_func (struct ui_file *out, int from_tty,
   }
 }
 
+
+void
+set_calling_convention_func (char *args, int from_tty,
+                       struct cmd_list_element *cmd)
+{
+  /*if (args != NULL)
+	  //&& is_calling_convention (args[0]))
+  {
+    //calling_convention_mode = args[0];
+    //show_calling_convention (gdb_stdout, from_tty, NULL, NULL);
+  }
+  else
+  {
+    error (_("Specify valid calling convention, gcc and clang are available."));
+  }*/
+}
+
+void
+show_calling_convention_func (struct ui_file *out, int from_tty,
+                              struct cmd_list_element *cmd, const char *value)
+{
+  /*CORE_ADDR pc;
+  struct regcache *regcache = get_current_regcache ();*/
+//  regcache_cooked_read_unsigned (regcache, ARC_PC_REGNUM, &pc);
+//  calling_convention_mode = arc_default_calling_convention(pc); /* Clear context switchable stepping state.  */
+}
+
 static void
 show_schedule_multiple (struct ui_file *file, int from_tty,
 			struct cmd_list_element *c, const char *value)
@@ -7947,6 +7950,6 @@ add_setshow_enum_cmd ("calling_convention", no_class, calling_convention_enums,
       		  put arguments into\n\
 registers accordingly to gcc calling convention (if calling f(int,\n\
 long long), r1 register will be filled with zeros, otherwise (if using clang calling convention) r1 will contain part of long long value)."),
-      			set_calling_convention, show_calling_convention,
+      			set_calling_convention_func, show_calling_convention_func,
       			&setlist, &showlist);
 }
