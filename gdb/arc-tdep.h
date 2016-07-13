@@ -289,14 +289,14 @@ struct gdbarch_tdep
 {
   /* Detect sigtramp.  */
   int (*is_sigtramp) (struct frame_info*);
-  
+
   /* Get address of sigcontext for sigtramp.  */
   CORE_ADDR (*sigcontext_addr) (struct frame_info*);
-  
+
   /* Offset of registers in `struct sigcontext'. */
   const int*   sc_reg_offset;
   unsigned int sc_num_regs;
-  
+
   struct arc_reginfo *reginfo;
   /* reginfo_sz is useful in cannot_(store|fetch), where gdbarch_num_regs might
    * be greater than amount of registers in reginfo. */

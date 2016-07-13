@@ -40,10 +40,6 @@ core
 !core/
 
 lost+found
-gdb/arc-linux-tdep.c
-gdb/arc-tdep.c
-gdb/arc-tdep.h
-gdb/arm-tdep.c
 .metadata/
 .project
 ARC_GDB/
@@ -138,6 +134,7 @@ gdb/testsuite/gdb.threads/Makefile
 gdb/testsuite/gdb.trace/Makefile
 gdb/testsuite/gdb.xml/Makefile
 gdb/testsuite/lib/pdtrace
+gdb/ChangeLog.*
 gprof/Makefile
 gprof/po/Makefile
 gprof/po/Makefile.in

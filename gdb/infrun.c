@@ -123,7 +123,6 @@ int sync_execution = 0;
    in.  */
 
 static ptid_t previous_inferior_ptid;
-
 /* If set (default for legacy reasons), when following a fork, GDB
    will detach from one of the fork branches, child or parent.
    Exactly which branch is detached depends on 'set follow-fork-mode'
@@ -721,7 +720,7 @@ follow_fork (void)
 	    tp->control.command_interp = NULL;
 	  }
 
-	parent = inferior_ptid;
+	    parent = inferior_ptid;
 	child = tp->pending_follow.value.related_pid;
 
 	/* Set up inferior(s) as specified by the caller, and tell the
@@ -7609,26 +7608,22 @@ void
 set_calling_convention_func (char *args, int from_tty,
                        struct cmd_list_element *cmd)
 {
-  /*if (args != NULL)
-	  //&& is_calling_convention (args[0]))
-  {
-    //calling_convention_mode = args[0];
-    //show_calling_convention (gdb_stdout, from_tty, NULL, NULL);
-  }
-  else
-  {
-    error (_("Specify valid calling convention, gcc and clang are available."));
-  }*/
+  is_calling_convention_defined_by_user = TRUE;
+  show_calling_convention_func (gdb_stdout, from_tty, NULL, NULL);
 }
 
 void
 show_calling_convention_func (struct ui_file *out, int from_tty,
                               struct cmd_list_element *cmd, const char *value)
 {
-  /*CORE_ADDR pc;
-  struct regcache *regcache = get_current_regcache ();*/
-//  regcache_cooked_read_unsigned (regcache, ARC_PC_REGNUM, &pc);
-//  calling_convention_mode = arc_default_calling_convention(pc); /* Clear context switchable stepping state.  */
+  if (!is_calling_convention_defined_by_user)
+  {
+    CORE_ADDR pc;
+    struct regcache *regcache = get_current_regcache ();
+    pc = regcache_read_pc (regcache);
+    calling_convention_mode = arc_default_calling_convention(pc);
+  }
+  fprintf_filtered (out, _("%s\n"), calling_convention_mode);
 }
 
 static void
@@ -7654,10 +7649,6 @@ _initialize_infrun (void)
   int i;
   int numsigs;
   struct cmd_list_element *c;
-//  CORE_ADDR pc;
-//  struct regcache *regcache = get_current_regcache ();
-//  regcache_cooked_read_unsigned (regcache, ARC_PC_REGNUM, &pc);
-//  calling_conventions_mode = arc_default_calling_convention(pc); 
   add_info ("signals", signals_info, _("\
 What debugger does when program gets various signals.\n\
 Specify a signal as argument to print info on that signal only."));
@@ -7943,8 +7934,10 @@ or signalled."),
 			   show_observer_mode,
 			   &setlist,
 			   &showlist);
-add_setshow_enum_cmd ("calling_convention", no_class, calling_convention_enums,
-      	        &calling_convention_mode,                                                                                                   		_("Set calling convention."),
+
+//struct calling_convention_info info = get_or_put_calling_convention_by_inferior_ptid (inferior_ptid);
+add_setshow_enum_cmd ("calling_convention", no_class, calling_convention_enums, &calling_convention_mode,
+      	                                                                                                          		_("Set calling convention."),
       		_("Show which calling convention is set."),
       		_("If gcc calling convention is set, when executing \"call\" gdb command, gdb will\n\
       		  put arguments into\n\

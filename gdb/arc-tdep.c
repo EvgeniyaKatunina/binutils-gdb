@@ -187,7 +187,7 @@
 #include "demangle.h"
 #include "objfiles.h"
 #include "gdb/gdbcmd.h"
-#include "gdb/calling_conventions.h"
+#include "calling_conventions.h"
 #include "target-descriptions.h"
 
 /* ARC header files */
@@ -1651,7 +1651,7 @@ arc_push_dummy_call (struct gdbarch *gdbarch,
   //one default. Write set handler for choosing calling convention defined by   //the user.
   //TODO2: use common code for both arc-linux-tdep and arc-elf-tdep (write it
   //in arc-tdep)
-  int is_calling_convention_gcc = calling_convention_equal (calling_convention_mode, calling_convention_gcc); 
+  int is_calling_convention_gcc = strcmp (calling_convention_mode, calling_convention_gcc);
   ARC_ENTRY_DEBUG ("nargs = %d", nargs)
 
   /* Push the return address. */

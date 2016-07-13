@@ -23,7 +23,11 @@
 struct target_waitstatus;
 struct frame_info;
 struct address_space;
+/*struct user_defined_calling_convention_by_inferior
+{
+  const char * calling_convention;
 
+}*/
 /* True if we are debugging run control.  */
 extern unsigned int debug_infrun;
 
